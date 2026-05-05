@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS students (
   course VARCHAR(128) NULL,
   school_year VARCHAR(32) NULL,
   section VARCHAR(32) NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(32) NULL,
   notes VARCHAR(255) NULL
 );
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS faculty (
   name VARCHAR(128) NOT NULL,
   faculty_id VARCHAR(64) NOT NULL,
   department VARCHAR(128) NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(32) NULL,
   notes VARCHAR(255) NULL
 );
@@ -23,6 +25,7 @@ CREATE TABLE IF NOT EXISTS staff (
   name VARCHAR(128) NOT NULL,
   staff_id VARCHAR(64) NOT NULL,
   department VARCHAR(128) NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(32) NULL,
   notes VARCHAR(255) NULL
 );
@@ -32,6 +35,7 @@ CREATE TABLE IF NOT EXISTS visitors (
   name VARCHAR(128) NOT NULL,
   purpose VARCHAR(128) NULL,
   valid_until DATE NULL,
+  email VARCHAR(255) NULL,
   phone VARCHAR(32) NULL,
   notes VARCHAR(255) NULL
 );
@@ -45,6 +49,7 @@ CREATE TABLE IF NOT EXISTS scans (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   uid VARCHAR(64) NOT NULL,
   direction VARCHAR(8) NOT NULL,
+  admin_uid VARCHAR(64) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 );
