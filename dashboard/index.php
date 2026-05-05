@@ -205,6 +205,10 @@ if (!isset($_SESSION['admin_uid'])) {
                 <input id="viewPhone" disabled />
               </div>
               <div class="field">
+                <label>Email</label>
+                <input id="viewEmail" disabled />
+              </div>
+              <div class="field">
                 <label>Role</label>
                 <input id="viewRole" disabled />
               </div>
@@ -264,6 +268,10 @@ if (!isset($_SESSION['admin_uid'])) {
                 <div class="field">
                   <label for="regPhone">Phone</label>
                   <input id="regPhone" name="phone" />
+                </div>
+                <div class="field">
+                  <label for="regEmail">Email</label>
+                  <input id="regEmail" name="email" type="email" />
                 </div>
                 <div class="field">
                   <label for="regRole">Role</label>
@@ -382,6 +390,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const viewSchoolYearEl = document.getElementById('viewSchoolYear');
     const viewSectionEl = document.getElementById('viewSection');
     const viewPhoneEl = document.getElementById('viewPhone');
+    const viewEmailEl = document.getElementById('viewEmail');
     const viewRoleEl = document.getElementById('viewRole');
     const viewFacultyIdEl = document.getElementById('viewFacultyId');
     const viewStaffIdEl = document.getElementById('viewStaffId');
@@ -489,6 +498,7 @@ if (!isset($_SESSION['admin_uid'])) {
       viewPurposeEl.value = user.purpose || '';
       viewValidUntilEl.value = user.valid_until || '';
       viewPhoneEl.value = user.phone || '';
+      viewEmailEl.value = user.email || '';
       viewRoleEl.value = user.role || '';
       registerStatusEl.textContent = '';
     }
@@ -525,6 +535,7 @@ if (!isset($_SESSION['admin_uid'])) {
       document.getElementById('regPurpose').value = user.purpose || '';
       document.getElementById('regValidUntil').value = user.valid_until || '';
       document.getElementById('regPhone').value = user.phone || '';
+      document.getElementById('regEmail').value = user.email || '';
       document.getElementById('regRole').value = user.role || 'student';
       updateRoleFields(user.role || 'student');
       registerStatusEl.textContent = 'Editing registered student';

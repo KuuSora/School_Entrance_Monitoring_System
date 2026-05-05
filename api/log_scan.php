@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/emailer.php';
 
 // allow scanner to provide `admin_uid`, but prefer the logged-in admin session when present
 session_start();
@@ -95,15 +96,15 @@ if ($posted_admin_uid !== null && ($admin_uid === null || $admin_uid !== $posted
 
 // Check if user exists across all groups (include admins). Compare normalized UIDs
 $stmt = $mysqli->prepare(
-    "SELECT name, 'admin' AS role FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ?
+    "SELECT name, NULL AS email, 'admin' AS role FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
-     SELECT name, 'student' AS role FROM students WHERE REPLACE(UPPER(uid), ':', '') = ?
+     SELECT name, email, 'student' AS role FROM students WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
-     SELECT name, 'faculty' AS role FROM faculty WHERE REPLACE(UPPER(uid), ':', '') = ?
+     SELECT name, email, 'faculty' AS role FROM faculty WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
-     SELECT name, 'staff' AS role FROM staff WHERE REPLACE(UPPER(uid), ':', '') = ?
+     SELECT name, email, 'staff' AS role FROM staff WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
-     SELECT name, 'visitor' AS role FROM visitors WHERE REPLACE(UPPER(uid), ':', '') = ?
+     SELECT name, email, 'visitor' AS role FROM visitors WHERE REPLACE(UPPER(uid), ':', '') = ?
      LIMIT 1"
 );
 $stmt->bind_param('sssss', $uid_norm, $uid_norm, $uid_norm, $uid_norm, $uid_norm);
@@ -113,9 +114,11 @@ $user = $res->fetch_assoc();
 $stmt->close();
 
 $message = '';
+$email = '';
 if ($user) {
     // User already exists. Give access.
     $name = $user['name'];
+    $email = isset($user['email']) ? trim($user['email']) : '';
     $message = "Access Granted: Welcome, " . $name;
 } else {
     // New user. Needs registration.
@@ -141,3 +144,8 @@ if (!$ok) {
 }
 
 echo json_encode(['ok' => true, 'message' => $message, 'name' => $name, 'direction' => $direction]);
+
+if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    $scanTime = date('Y-m-d H:i:s');
+    send_scan_email($email, $name, $direction, $uid, $scanTime);
+}

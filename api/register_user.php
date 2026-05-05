@@ -19,6 +19,7 @@ $staffId = isset($_POST['staff_id']) ? trim($_POST['staff_id']) : '';
 $department = isset($_POST['department']) ? trim($_POST['department']) : '';
 $purpose = isset($_POST['purpose']) ? trim($_POST['purpose']) : '';
 $validUntil = isset($_POST['valid_until']) ? trim($_POST['valid_until']) : '';
+$email = isset($_POST['email']) ? trim($_POST['email']) : '';
 $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
 $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
 $role = isset($_POST['role']) ? trim($_POST['role']) : 'student';
@@ -47,18 +48,19 @@ if ($role === 'student') {
         exit;
     }
     $stmt = $mysqli->prepare(
-        'INSERT INTO students (uid, name, student_id, course, school_year, section, phone, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                'INSERT INTO students (uid, name, student_id, course, school_year, section, email, phone, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            name = VALUES(name),
            student_id = VALUES(student_id),
            course = VALUES(course),
            school_year = VALUES(school_year),
            section = VALUES(section),
+                     email = VALUES(email),
            phone = VALUES(phone),
            notes = VALUES(notes)'
     );
-    $stmt->bind_param('ssssssss', $uid, $name, $studentId, $course, $schoolYear, $section, $phone, $notes);
+        $stmt->bind_param('sssssssss', $uid, $name, $studentId, $course, $schoolYear, $section, $email, $phone, $notes);
     $ok = $stmt->execute();
     $stmt->close();
 } else if ($role === 'faculty') {
@@ -68,16 +70,17 @@ if ($role === 'student') {
         exit;
     }
     $stmt = $mysqli->prepare(
-        'INSERT INTO faculty (uid, name, faculty_id, department, phone, notes)
-         VALUES (?, ?, ?, ?, ?, ?)
+                'INSERT INTO faculty (uid, name, faculty_id, department, email, phone, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            name = VALUES(name),
            faculty_id = VALUES(faculty_id),
            department = VALUES(department),
+                     email = VALUES(email),
            phone = VALUES(phone),
            notes = VALUES(notes)'
     );
-    $stmt->bind_param('ssssss', $uid, $name, $facultyId, $department, $phone, $notes);
+        $stmt->bind_param('sssssss', $uid, $name, $facultyId, $department, $email, $phone, $notes);
     $ok = $stmt->execute();
     $stmt->close();
 } else if ($role === 'staff') {
@@ -87,30 +90,32 @@ if ($role === 'student') {
         exit;
     }
     $stmt = $mysqli->prepare(
-        'INSERT INTO staff (uid, name, staff_id, department, phone, notes)
-         VALUES (?, ?, ?, ?, ?, ?)
+                'INSERT INTO staff (uid, name, staff_id, department, email, phone, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            name = VALUES(name),
            staff_id = VALUES(staff_id),
            department = VALUES(department),
+                     email = VALUES(email),
            phone = VALUES(phone),
            notes = VALUES(notes)'
     );
-    $stmt->bind_param('ssssss', $uid, $name, $staffId, $department, $phone, $notes);
+        $stmt->bind_param('sssssss', $uid, $name, $staffId, $department, $email, $phone, $notes);
     $ok = $stmt->execute();
     $stmt->close();
 } else if ($role === 'visitor') {
     $stmt = $mysqli->prepare(
-        'INSERT INTO visitors (uid, name, purpose, valid_until, phone, notes)
-         VALUES (?, ?, ?, ?, ?, ?)
+                'INSERT INTO visitors (uid, name, purpose, valid_until, email, phone, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            name = VALUES(name),
            purpose = VALUES(purpose),
            valid_until = VALUES(valid_until),
+                     email = VALUES(email),
            phone = VALUES(phone),
            notes = VALUES(notes)'
     );
-    $stmt->bind_param('ssssss', $uid, $name, $purpose, $validUntil, $phone, $notes);
+        $stmt->bind_param('sssssss', $uid, $name, $purpose, $validUntil, $email, $phone, $notes);
     $ok = $stmt->execute();
     $stmt->close();
 } else {
