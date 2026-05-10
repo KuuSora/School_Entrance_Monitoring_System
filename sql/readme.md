@@ -135,3 +135,67 @@ CREATE TABLE IF NOT EXISTS visitors (
 ## Notes
 - RC522 uses 3.3V only. Do not power it with 5V.
 - If your LCD address is not 0x27, change it in the sketch.
+
+---
+
+## Project Prompt (Professional)
+You are a senior full-stack developer. Summarize and extend this RFID-based School Entrance Monitoring System. The system consists of an ESP32 + RC522 RFID reader that posts scans to a PHP API, a MySQL database that stores people and scan logs, and a web dashboard for admins.
+
+Goals:
+- Keep current URLs and file paths working (Apache/XAMPP setup).
+- Maintain the scan flow: RFID card -> API -> database -> dashboard updates.
+- Preserve role-based registration (student, faculty, staff, visitor) and admin login.
+- Respect existing schema and migrations; add fields only when needed.
+
+Architecture Overview:
+- Device: ESP32 posts form data to log_scan.php with uid and gpio/direction.
+- API (PHP): Handles auth, scan logging, user registration, reporting, and email alerts.
+- DB (MySQL): Stores people in separate tables (students, faculty, staff, visitors), scans, admins, and admin_uid_rejections.
+- Dashboard (PHP + JS + CSS): Admin UI for stats, scan log, registration, and suspicious activity.
+
+Key Data Model:
+- students(uid, name, student_id, course, school_year, section, email, phone, notes)
+- faculty(uid, name, faculty_id, department, email, phone, notes)
+- staff(uid, name, staff_id, department, email, phone, notes)
+- visitors(uid, name, purpose, valid_until, email, phone, notes)
+- admins(uid, name)
+- scans(id, uid, direction, admin_uid, created_at)
+- admin_uid_rejections(id, posted_admin_uid, scanned_uid, direction, reason, ip, user_agent, created_at)
+
+Core API Endpoints:
+- log_scan.php: validates uid + direction, logs scans, resolves user name, logs rejected admin_uid attempts, sends email notification if available.
+- register_user.php: upserts role-specific user data.
+- get_users.php / get_user.php: list users or fetch a single user profile.
+- get_scans.php: returns scan history, stats, suspicious flags.
+- get_suspicious.php: consecutive IN/IN or OUT/OUT detection.
+- get_user_logs.php: per-user scan history.
+- admin_login.php / admin_logout.php: admin session management.
+- migrate_ensure_master_admin.php: inserts Master Card admin if missing.
+- migrate_backfill_admin_uid.php: backfills scans admin_uid.
+- migrate_create_admin_rejections.php: ensures admin_uid_rejections table.
+- migrate_add_email_columns.php: adds email columns + admin_uid to scans if missing.
+
+Scan Flow:
+1) ESP32 reads card -> posts uid + gpio (5=OUT, 25=IN) to log_scan.php.
+2) API normalizes uid, determines direction, resolves user role/name.
+3) API logs scan to scans table (with admin_uid if available).
+4) API returns JSON response; dashboard polls get_scans.php for updates.
+5) If user email exists and SMTP is enabled, send email alert.
+
+Admin Flow:
+- Admin logs in by scanning an admin card (admin_login.php). Session stored in PHP.
+- Admin dashboard shows stats, scan log, suspicious alerts, and registration form.
+
+Email Alerts:
+- Config in api/config.php; SMTP send via api/emailer.php.
+- Triggered on each scan for users with valid email.
+
+Constraints:
+- Keep compatible with XAMPP/Apache and current URL paths.
+- Use existing database schema and migrations; avoid breaking API responses.
+- Maintain JSON response shapes for the dashboard frontend.
+
+Deliverables:
+- Clear, minimal changes with backward compatibility.
+- Update schema via migrations when needed.
+- Keep UI modern and readable.

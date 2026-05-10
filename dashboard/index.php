@@ -43,6 +43,14 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Register</span>
       </button>
+      <button class="tab-btn" data-href="personal_activity.php" title="Personal Activity">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false">
+            <path d="M12 2a5 5 0 0 1 5 5v1h1.5A2.5 2.5 0 0 1 21 10.5v8A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5v-8A2.5 2.5 0 0 1 5.5 8H7V7a5 5 0 0 1 5-5zm3 6V7a3 3 0 0 0-6 0v1h6zm-3 5a2 2 0 0 0-1 3.732V17a1 1 0 0 0 2 0v-.268A2 2 0 0 0 12 13z" />
+          </svg>
+        </span>
+        <span class="tab-label">Personal Activity</span>
+      </button>
       <button class="tab-btn" data-tab="dashboardTab" title="Scan Log">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -100,39 +108,12 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
 
         <section class="section">
-          <h1>Person Activity</h1>
-          <p class="sub">View scans per registered person.</p>
-          <div class="split">
-            <div class="card">
-              <h3>Person Logs</h3>
-              <div class="field">
-                <label for="userSelect">Select person</label>
-                <select id="userSelect"></select>
-              </div>
-              <div class="panel-table" style="margin-top: 12px;">
-                <table class="table-compact">
-                  <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Dir</th>
-                          <th>Admin</th>
-                          <th>Time</th>
-                        </tr>
-                  </thead>
-                  <tbody id="userLogs"></tbody>
-                </table>
-              </div>
-            </div>
-            <div class="stack">
-              <div class="card">
-                <h3>Peak Times (Today)</h3>
-                <ul class="list" id="peakTimes"></ul>
-              </div>
-              <div class="card">
-                <h3>Alerts</h3>
-                <ul class="list" id="alertList"></ul>
-              </div>
-            </div>
+          <h1>Personal Activity</h1>
+          <p class="sub">Moved to a dedicated page so the dashboard stays focused on overview and scan log.</p>
+          <div class="card">
+            <h3>Open the activity page</h3>
+            <p class="sub" style="margin-top: 0;">Browse scans per person with admin filters and per-user tags.</p>
+            <button class="btn" type="button" data-href="personal_activity.php">Go to Personal Activity</button>
           </div>
         </section>
       </div>
@@ -355,6 +336,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const rowsEl = document.getElementById('rows');
     const statusEl = document.getElementById('status');
     const adminFilterEl = document.getElementById('adminFilter');
+    const adminUserFilterEl = document.getElementById('adminUserFilter');
     const suspiciousOnlyEl = document.getElementById('suspiciousOnly');
     const todayTotalEl = document.getElementById('todayTotal');
     const todayMetaEl = document.getElementById('todayMeta');
@@ -373,6 +355,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const tabContents = document.querySelectorAll('.tab-content');
     const userSelectEl = document.getElementById('userSelect');
     const userLogsEl = document.getElementById('userLogs');
+    const userAdminTagsEl = document.getElementById('userAdminTags');
     const registerFormEl = document.getElementById('registerForm');
     const registerStatusEl = document.getElementById('registerStatus');
     const scanPromptEl = document.getElementById('scanPrompt');
@@ -399,6 +382,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const viewValidUntilEl = document.getElementById('viewValidUntil');
     let lastScanId = 0;
     let currentRegisteredUser = null;
+    let adminTagsByUid = {};
 
     function formatHourRange(hour) {
       const start = hour % 24;
@@ -416,28 +400,30 @@ if (!isset($_SESSION['admin_uid'])) {
         return;
       }
 
-      todayTotalEl.textContent = stats.today.total;
-      todayMetaEl.textContent = `In: ${stats.today.in} | Out: ${stats.today.out}`;
+      if (todayTotalEl) todayTotalEl.textContent = stats.today.total;
+      if (todayMetaEl) todayMetaEl.textContent = `In: ${stats.today.in} | Out: ${stats.today.out}`;
 
-      weekTotalEl.textContent = stats.week.total;
-      weekMetaEl.textContent = `Avg/day: ${stats.week.avg_per_day}`;
+      if (weekTotalEl) weekTotalEl.textContent = stats.week.total;
+      if (weekMetaEl) weekMetaEl.textContent = `Avg/day: ${stats.week.avg_per_day}`;
 
-      monthTotalEl.textContent = stats.month.total;
-      monthMetaEl.textContent = `Best day: ${stats.month.best_day}`;
+      if (monthTotalEl) monthTotalEl.textContent = stats.month.total;
+      if (monthMetaEl) monthMetaEl.textContent = `Best day: ${stats.month.best_day}`;
 
-      activeStudentsEl.textContent = stats.active_students_7d;
-      insideTotalEl.textContent = stats.inside.total;
-      insideMetaEl.textContent = `Students: ${stats.inside.students} | Faculty: ${stats.inside.faculty}`;
+      if (activeStudentsEl) activeStudentsEl.textContent = stats.active_students_7d;
+      if (insideTotalEl) insideTotalEl.textContent = stats.inside.total;
+      if (insideMetaEl) insideMetaEl.textContent = `Students: ${stats.inside.students} | Faculty: ${stats.inside.faculty}`;
 
-      let peakHtml = '';
-      if (stats.peak_hours_today.length === 0) {
-        peakHtml = '<li><span>No scans today</span><span class="badge">0</span></li>';
-      } else {
-        stats.peak_hours_today.forEach(item => {
-          peakHtml += `<li><span>${formatHourRange(item.hour)}</span><span class="badge">${item.count}</span></li>`;
-        });
+      if (peakTimesEl) {
+        let peakHtml = '';
+        if (stats.peak_hours_today.length === 0) {
+          peakHtml = '<li><span>No scans today</span><span class="badge">0</span></li>';
+        } else {
+          stats.peak_hours_today.forEach(item => {
+            peakHtml += `<li><span>${formatHourRange(item.hour)}</span><span class="badge">${item.count}</span></li>`;
+          });
+        }
+        peakTimesEl.innerHTML = peakHtml;
       }
-      peakTimesEl.innerHTML = peakHtml;
 
       const alerts = stats.alerts || {
         unregistered_cards: 0,
@@ -446,13 +432,22 @@ if (!isset($_SESSION['admin_uid'])) {
         consecutive_in: 0,
         consecutive_out: 0
       };
-      alertListEl.innerHTML = `
-        <li><span>Unregistered cards</span><span class="badge">${alerts.unregistered_cards}</span></li>
-        <li><span>Scans last 10 min</span><span class="badge">${alerts.scans_last_10_min}</span></li>
-        <li><span>Unique today</span><span class="badge">${alerts.unique_today}</span></li>
-        <li><span>Consecutive IN</span><span class="badge">${alerts.consecutive_in}</span></li>
-        <li><span>Consecutive OUT</span><span class="badge">${alerts.consecutive_out}</span></li>
-      `;
+      if (alertListEl) {
+        alertListEl.innerHTML = `
+          <li><span>Unregistered cards</span><span class="badge">${alerts.unregistered_cards}</span></li>
+          <li><span>Scans last 10 min</span><span class="badge">${alerts.scans_last_10_min}</span></li>
+          <li><span>Unique today</span><span class="badge">${alerts.unique_today}</span></li>
+          <li><span>Consecutive IN</span><span class="badge">${alerts.consecutive_in}</span></li>
+          <li><span>Consecutive OUT</span><span class="badge">${alerts.consecutive_out}</span></li>
+        `;
+      }
+
+      if (suspiciousCountEl) {
+        suspiciousCountEl.textContent = alerts.consecutive_in + alerts.consecutive_out;
+      }
+      if (suspiciousMetaEl) {
+        suspiciousMetaEl.textContent = 'Last 24 hours';
+      }
     }
 
     function setActiveTab(tabId) {
@@ -466,6 +461,42 @@ if (!isset($_SESSION['admin_uid'])) {
         if (btn.dataset.tab === tabId) {
           btn.classList.add('active');
         }
+      });
+    }
+
+    function getAdminFilterValue() {
+      if (adminUserFilterEl && adminUserFilterEl.value) {
+        return adminUserFilterEl.value;
+      }
+      return adminFilterEl ? adminFilterEl.value : '';
+    }
+
+    function syncAdminFilters(value) {
+      if (adminFilterEl && adminFilterEl.value !== value) {
+        adminFilterEl.value = value;
+      }
+      if (adminUserFilterEl && adminUserFilterEl.value !== value) {
+        adminUserFilterEl.value = value;
+      }
+    }
+
+    function renderUserAdminTags(tags) {
+      if (!userAdminTagsEl) {
+        return;
+      }
+      userAdminTagsEl.innerHTML = '';
+      if (!tags || tags.length === 0) {
+        const emptyTag = document.createElement('span');
+        emptyTag.className = 'tag muted';
+        emptyTag.textContent = 'No admin tags';
+        userAdminTagsEl.appendChild(emptyTag);
+        return;
+      }
+      tags.forEach(tag => {
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.textContent = tag;
+        userAdminTagsEl.appendChild(span);
       });
     }
 
@@ -575,12 +606,48 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     async function loadUsers() {
+      if (!userSelectEl || !userLogsEl) {
+        return;
+      }
       try {
-        const res = await fetch('../api/get_users.php');
-        const data = await res.json();
+        const adminUid = getAdminFilterValue();
+        const usersUrl = new URL('../api/get_users.php', window.location.href);
+        if (adminUid) usersUrl.searchParams.set('admin_uid', adminUid);
+
+        const adminUsersUrl = new URL('../api/get_admin_users.php', window.location.href);
+        if (adminUid) adminUsersUrl.searchParams.set('admin_uid', adminUid);
+
+        const [usersRes, adminUsersRes] = await Promise.all([
+          fetch(usersUrl.toString()),
+          fetch(adminUsersUrl.toString())
+        ]);
+
+        if (!usersRes.ok || !adminUsersRes.ok) {
+          throw new Error('Failed to load user lists');
+        }
+
+        const data = await usersRes.json();
+        const adminUsersData = await adminUsersRes.json();
         if (!data.ok) {
           return;
         }
+
+        adminTagsByUid = {};
+        if (adminUsersData.ok && Array.isArray(adminUsersData.data)) {
+          adminUsersData.data.forEach(row => {
+            if (!row.uid) {
+              return;
+            }
+            if (!adminTagsByUid[row.uid]) {
+              adminTagsByUid[row.uid] = new Set();
+            }
+            const adminLabel = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
+            if (adminLabel) {
+              adminTagsByUid[row.uid].add(adminLabel);
+            }
+          });
+        }
+
         userSelectEl.innerHTML = '';
         data.data.forEach(user => {
           let idLabel = '';
@@ -593,7 +660,13 @@ if (!isset($_SESSION['admin_uid'])) {
           } else if (user.role === 'visitor' && user.purpose) {
             idLabel = user.purpose;
           }
-          const label = idLabel ? `${user.name} (${idLabel})` : user.name;
+          let label = idLabel ? `${user.name} (${idLabel})` : user.name;
+          if (adminTagsByUid[user.uid]) {
+            const tags = Array.from(adminTagsByUid[user.uid]);
+            if (tags.length > 0) {
+              label += ` — ${tags.join(' · ')}`;
+            }
+          }
           const option = document.createElement('option');
           option.value = user.uid;
           option.textContent = label;
@@ -603,13 +676,18 @@ if (!isset($_SESSION['admin_uid'])) {
           loadUserLogs(userSelectEl.value);
         } else {
           userLogsEl.innerHTML = '<tr><td colspan="3">No registered people</td></tr>';
+          renderUserAdminTags([]);
         }
       } catch (err) {
         userLogsEl.innerHTML = '<tr><td colspan="3">Unable to load users</td></tr>';
+        renderUserAdminTags([]);
       }
     }
 
     async function loadUserLogs(uid) {
+      if (!userLogsEl) {
+        return;
+      }
       if (!uid) {
         return;
       }
@@ -618,15 +696,21 @@ if (!isset($_SESSION['admin_uid'])) {
         const data = await res.json();
         if (!data.ok) {
           userLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
+          renderUserAdminTags([]);
           return;
         }
         if (data.data.length === 0) {
           userLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
+          renderUserAdminTags([]);
           return;
         }
         let html = '';
+        const adminSet = new Set();
         data.data.forEach(row => {
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
+          if (adminDisplay) {
+            adminSet.add(adminDisplay);
+          }
           html += `<tr>
             <td>${row.id}</td>
             <td>${row.direction}</td>
@@ -635,13 +719,15 @@ if (!isset($_SESSION['admin_uid'])) {
           </tr>`;
         });
         userLogsEl.innerHTML = html;
+        renderUserAdminTags(Array.from(adminSet));
       } catch (err) {
         userLogsEl.innerHTML = '<tr><td colspan="4">Unable to load logs</td></tr>';
+        renderUserAdminTags([]);
       }
     }
 
     async function loadScans() {
-      const adminUid = adminFilterEl ? adminFilterEl.value : '';
+      const adminUid = getAdminFilterValue();
       const suspiciousOnly = suspiciousOnlyEl && suspiciousOnlyEl.checked ? 1 : 0;
       try {
         const url = new URL('../api/get_scans.php', window.location.href);
@@ -649,9 +735,22 @@ if (!isset($_SESSION['admin_uid'])) {
         if (adminUid) url.searchParams.set('admin_uid', adminUid);
         if (suspiciousOnly) url.searchParams.set('suspicious', '1');
         const res = await fetch(url.toString());
-        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = `Server error ${res.status}`;
+          console.error('get_scans.php returned HTTP', res.status, await res.text());
+          return;
+        }
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          statusEl.textContent = 'Invalid response from server';
+          console.error('Failed to parse JSON from get_scans.php:', e, await res.text());
+          return;
+        }
         if (!data.ok) {
           statusEl.textContent = 'Error loading data';
+          console.error('get_scans.php responded with ok=false', data);
           return;
         }
 
@@ -725,18 +824,44 @@ if (!isset($_SESSION['admin_uid'])) {
       }
     }
     async function loadAdmins() {
-      if (!adminFilterEl) return;
+      if (!adminFilterEl && !adminUserFilterEl) return;
       try {
         const res = await fetch('../api/get_admins.php');
+        if (!res.ok) {
+          return;
+        }
         const data = await res.json();
         if (!data.ok) return;
-        adminFilterEl.innerHTML = '<option value="">All Admins</option>';
+        const currentValue = adminFilterEl ? adminFilterEl.value : '';
+        const currentUserValue = adminUserFilterEl ? adminUserFilterEl.value : '';
+
+        if (adminFilterEl) {
+          adminFilterEl.innerHTML = '<option value="">All Admins</option>';
+        }
+        if (adminUserFilterEl) {
+          adminUserFilterEl.innerHTML = '<option value="">All Admins</option>';
+        }
+
         data.data.forEach(a => {
-          const opt = document.createElement('option');
-          opt.value = a.uid;
-          opt.textContent = a.name;
-          adminFilterEl.appendChild(opt);
+          if (adminFilterEl) {
+            const opt = document.createElement('option');
+            opt.value = a.uid;
+            opt.textContent = a.name;
+            adminFilterEl.appendChild(opt);
+          }
+          if (adminUserFilterEl) {
+            const optUser = document.createElement('option');
+            optUser.value = a.uid;
+            optUser.textContent = a.name;
+            adminUserFilterEl.appendChild(optUser);
+          }
         });
+
+        if (currentValue) {
+          syncAdminFilters(currentValue);
+        } else if (currentUserValue) {
+          syncAdminFilters(currentUserValue);
+        }
       } catch (err) {
         // ignore
       }
@@ -744,7 +869,14 @@ if (!isset($_SESSION['admin_uid'])) {
 
     async function loadSuspicious() {
       try {
-        const res = await fetch('../api/get_suspicious.php?limit=200');
+        const adminUid = getAdminFilterValue();
+        const url = new URL('../api/get_suspicious.php', window.location.href);
+        url.searchParams.set('limit', '200');
+        if (adminUid) url.searchParams.set('admin_uid', adminUid);
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          return;
+        }
         const data = await res.json();
         if (!data.ok) return;
         if (suspiciousCountEl) {
@@ -780,12 +912,22 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     tabButtons.forEach(btn => {
-      btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+      btn.addEventListener('click', () => {
+        if (btn.dataset.href) {
+          window.location.href = btn.dataset.href;
+          return;
+        }
+        if (btn.dataset.tab) {
+          setActiveTab(btn.dataset.tab);
+        }
+      });
     });
 
-    userSelectEl.addEventListener('change', () => {
-      loadUserLogs(userSelectEl.value);
-    });
+    if (userSelectEl) {
+      userSelectEl.addEventListener('change', () => {
+        loadUserLogs(userSelectEl.value);
+      });
+    }
 
     registerFormEl.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -824,12 +966,29 @@ if (!isset($_SESSION['admin_uid'])) {
     });
 
     // Initial load
-    loadUsers();
+    if (userSelectEl && userLogsEl) {
+      loadUsers();
+    }
     loadAdmins();
     loadScans();
     loadSuspicious();
     showPrompt();
-    if (adminFilterEl) adminFilterEl.addEventListener('change', loadScans);
+    if (adminFilterEl) {
+      adminFilterEl.addEventListener('change', () => {
+        syncAdminFilters(adminFilterEl.value);
+        loadScans();
+        loadUsers();
+        loadSuspicious();
+      });
+    }
+    if (adminUserFilterEl) {
+      adminUserFilterEl.addEventListener('change', () => {
+        syncAdminFilters(adminUserFilterEl.value);
+        loadScans();
+        loadUsers();
+        loadSuspicious();
+      });
+    }
     // Poll every 3 seconds
     setInterval(loadScans, 3000);
     // Refresh suspicious reports every 10s

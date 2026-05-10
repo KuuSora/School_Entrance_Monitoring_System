@@ -10,5 +10,11 @@ return [
     'smtp_encryption' => 'tls',
     'smtp_timeout' => 20,
     'from_email' => 'your-email@gmail.com',
-    'from_name' => 'RFID Monitor'
+    'from_name' => 'RFID Monitor',
+
+    // TextBee SMS Gateway (https://textbee.dev)
+    'textbee_enabled' => true,
+    'textbee_api_key' => 'c832da0c-e199-4da5-b069-a32dc99da5be',
+    'textbee_device_id' => '69fd95879b9db0a6fe283b7c',
+    'textbee_api_url' => 'https://api.textbee.dev/api/v1'
 ];

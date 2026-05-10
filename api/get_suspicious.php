@@ -5,7 +5,19 @@ require_once __DIR__ . '/db.php';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;
 if ($limit <= 0 || $limit > 1000) $limit = 200;
 
+$admin_uid_filter = isset($_GET['admin_uid']) ? trim($_GET['admin_uid']) : null;
+if ($admin_uid_filter === '') {
+    $admin_uid_filter = null;
+}
+
 // Find consecutive scans for the same UID where direction didn't change (IN/IN or OUT/OUT)
+$whereParts = ["s1.direction = s2.direction"];
+if ($admin_uid_filter) {
+    $admin_uid_safe = $mysqli->real_escape_string($admin_uid_filter);
+    $whereParts[] = "s2.admin_uid = '" . $admin_uid_safe . "'";
+}
+$whereClause = implode(' AND ', $whereParts);
+
 $sql = "SELECT s2.id, s2.uid, s2.direction, s2.created_at, s1.id AS prev_id, s1.created_at AS prev_created_at, s2.admin_uid, COALESCE(a.name, '') AS admin_name,
                COALESCE(p.name, 'New User') AS name
         FROM scans s1
@@ -20,7 +32,7 @@ $sql = "SELECT s2.id, s2.uid, s2.direction, s2.created_at, s1.id AS prev_id, s1.
             UNION ALL SELECT uid, name, 'visitor' AS role FROM visitors
             UNION ALL SELECT uid, name, 'admin' AS role FROM admins
         ) p ON s2.uid = p.uid
-        WHERE s1.direction = s2.direction
+        WHERE " . $whereClause . "
         ORDER BY s2.id DESC
         LIMIT " . (int)$limit;
 
