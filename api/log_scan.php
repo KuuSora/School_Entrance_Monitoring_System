@@ -144,9 +144,16 @@ if (!$ok) {
     exit;
 }
 
-echo json_encode(['ok' => true, 'message' => $message, 'name' => $name, 'direction' => $direction]);
-
-if ($phone !== '') {
+$smsResult = ['ok' => true, 'action' => 'skipped', 'reason' => 'No phone or not IN'];
+if ($phone !== '' && $direction === 'IN') {
     $scanTime = date('Y-m-d H:i:s');
-    send_scan_sms($phone, $name, $direction, $uid, $scanTime);
+    $smsResult = send_scan_sms($mysqli, $phone, $name, $direction, $uid, $scanTime);
 }
+
+echo json_encode([
+    'ok' => true,
+    'message' => $message,
+    'name' => $name,
+    'direction' => $direction,
+    'sms' => $smsResult
+]);

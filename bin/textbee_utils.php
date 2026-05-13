@@ -68,11 +68,16 @@ function send_via_textbee(string $phone, string $message, array $config): array 
     return ['ok' => false, 'error' => 'HTTP ' . $httpCode . ': ' . $error, 'response' => $json];
 }
 
-function send_scan_sms(string $toPhone, string $toName, string $direction, string $uid, string $scanTime): array {
+function send_scan_sms(mysqli $mysqli, string $toPhone, string $toName, string $direction, string $uid, string $scanTime): array {
     $config = require __DIR__ . '/../api/config.php';
 
     if (empty($config['textbee_enabled'])) {
         return ['ok' => false, 'error' => 'TextBee disabled'];
+    }
+
+    $direction = strtoupper($direction);
+    if ($direction !== 'IN') {
+        return ['ok' => true, 'action' => 'suppressed', 'reason' => 'Direction not IN'];
     }
 
     $normalizedPhone = normalize_ph_number($toPhone);
@@ -80,8 +85,55 @@ function send_scan_sms(string $toPhone, string $toName, string $direction, strin
         return ['ok' => false, 'error' => 'Invalid Philippines phone number'];
     }
 
+    $eventType = 'scan_in';
+    $stmt = $mysqli->prepare(
+        "SELECT COUNT(*) AS cnt FROM notifications WHERE uid = ? AND event_type = ? AND status = 'sent' AND DATE(sent_at) = CURDATE()"
+    );
+    if (!$stmt) {
+        return ['ok' => false, 'error' => 'Failed to prepare SMS limit check'];
+    }
+    $stmt->bind_param('ss', $uid, $eventType);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ((int)($row['cnt'] ?? 0) > 0) {
+        return ['ok' => true, 'action' => 'suppressed', 'reason' => 'Already sent one SMS to this user today'];
+    }
+
     $message = "Hello " . ($toName !== '' ? $toName : 'there') . ", your RFID card was scanned. " .
         "Direction: " . $direction . ", UID: " . $uid . ", Time: " . $scanTime . ".";
 
-    return send_via_textbee($normalizedPhone, $message, $config);
+    $stmt = $mysqli->prepare(
+        "INSERT INTO notifications (uid, phone, message, event_type, provider, status) VALUES (?, ?, ?, ?, 'textbee', 'queued')"
+    );
+    if (!$stmt) {
+        return ['ok' => false, 'error' => 'Failed to queue SMS'];
+    }
+    $stmt->bind_param('ssss', $uid, $normalizedPhone, $message, $eventType);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        return ['ok' => false, 'error' => 'Failed to queue SMS'];
+    }
+    $notificationId = $stmt->insert_id;
+    $stmt->close();
+
+    $sendResult = send_via_textbee($normalizedPhone, $message, $config);
+    if (!$sendResult['ok']) {
+        $mysqli->query(
+            "UPDATE notifications SET status = 'failed', last_error = '" . $mysqli->real_escape_string($sendResult['error']) . "', last_attempt_at = NOW() WHERE id = " . (int)$notificationId
+        );
+        return ['ok' => false, 'error' => 'TextBee send failed: ' . $sendResult['error']];
+    }
+
+    $mysqli->query(
+        "UPDATE notifications SET status = 'sent', sent_at = NOW(), last_attempt_at = NOW() WHERE id = " . (int)$notificationId
+    );
+
+    return [
+        'ok' => true,
+        'action' => 'sent',
+        'notification_id' => $notificationId,
+        'response' => $sendResult['response'],
+    ];
 }

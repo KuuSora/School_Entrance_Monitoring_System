@@ -108,6 +108,50 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
 
         <section class="section">
+          <h1>Traffic Charts</h1>
+          <p class="sub">Full history of student scans. Hover the line to see student, faculty, and staff counts.</p>
+          <div class="chart-grid">
+            <div class="chart-card wide">
+              <div class="chart-header">
+                <div class="chart-title-row">
+                  <h3>Student In vs Out (All Time)</h3>
+                  <div class="chart-controls">
+                    <label for="historyMode">View</label>
+                    <select id="historyMode">
+                      <option value="day" selected>Date</option>
+                      <option value="hour">Time</option>
+                    </select>
+                  </div>
+                </div>
+                <span class="chart-sub">Hover a point to see IN/OUT counts by role</span>
+              </div>
+              <div class="chart-canvas chart-tall">
+                <canvas id="historyChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3>Role Share (All Time)</h3>
+                <span class="chart-sub">Total scans by role</span>
+              </div>
+              <div class="chart-canvas">
+                <canvas id="roleChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3>In vs Out (All Time)</h3>
+                <span class="chart-sub">Overall totals</span>
+              </div>
+              <div class="chart-canvas">
+                <canvas id="directionChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="status" id="chartStatus">Loading charts...</div>
+        </section>
+
+        <section class="section">
           <h1>Personal Activity</h1>
           <p class="sub">Moved to a dedicated page so the dashboard stays focused on overview and scan log.</p>
           <div class="card">
@@ -332,6 +376,7 @@ if (!isset($_SESSION['admin_uid'])) {
     </aside>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script>
     const rowsEl = document.getElementById('rows');
     const statusEl = document.getElementById('status');
@@ -349,6 +394,11 @@ if (!isset($_SESSION['admin_uid'])) {
     const insideMetaEl = document.getElementById('insideMeta');
     const suspiciousCountEl = document.getElementById('suspiciousCount');
     const suspiciousMetaEl = document.getElementById('suspiciousMeta');
+    const chartStatusEl = document.getElementById('chartStatus');
+    const historyChartEl = document.getElementById('historyChart');
+    const roleChartEl = document.getElementById('roleChart');
+    const directionChartEl = document.getElementById('directionChart');
+    const historyModeEl = document.getElementById('historyMode');
     const peakTimesEl = document.getElementById('peakTimes');
     const alertListEl = document.getElementById('alertList');
     const tabButtons = document.querySelectorAll('.tab-btn');
@@ -383,6 +433,26 @@ if (!isset($_SESSION['admin_uid'])) {
     let lastScanId = 0;
     let currentRegisteredUser = null;
     let adminTagsByUid = {};
+    let historyChart = null;
+    let roleChart = null;
+    let directionChart = null;
+    let chartHistoryData = [];
+    const chartColors = {
+      studentIn: '#1d4ed8',
+      studentOut: '#dc2626',
+      roleStudent: '#1d4ed8',
+      roleFaculty: '#0f766e',
+      roleStaff: '#f59e0b',
+      roleVisitor: '#0ea5e9',
+      roleUnknown: '#94a3b8',
+      inTotal: '#1d4ed8',
+      outTotal: '#dc2626'
+    };
+
+    if (window.Chart) {
+      Chart.defaults.font.family = '"Space Grotesk", "Segoe UI", sans-serif';
+      Chart.defaults.color = '#475569';
+    }
 
     function formatHourRange(hour) {
       const start = hour % 24;
@@ -447,6 +517,379 @@ if (!isset($_SESSION['admin_uid'])) {
       }
       if (suspiciousMetaEl) {
         suspiciousMetaEl.textContent = 'Last 24 hours';
+      }
+    }
+
+    function setChartStatus(message) {
+      if (!chartStatusEl) {
+        return;
+      }
+      chartStatusEl.textContent = message || '';
+      chartStatusEl.style.display = message ? 'block' : 'none';
+    }
+
+    function formatCount(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function parseBucket(value, mode) {
+      if (!value) {
+        return null;
+      }
+      if (mode === 'hour') {
+        const parts = value.split(' ');
+        if (parts.length < 2) {
+          return null;
+        }
+        const dateParts = parts[0].split('-').map(Number);
+        const timeParts = parts[1].split(':').map(Number);
+        if (dateParts.length !== 3 || timeParts.length < 1) {
+          return null;
+        }
+        return new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0]);
+      }
+      const parts = value.split('-').map(Number);
+      if (parts.length !== 3) {
+        return null;
+      }
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    function formatBucket(date, mode) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      if (mode === 'hour') {
+        const hour = String(date.getHours()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hour}:00`;
+      }
+      return `${year}-${month}-${day}`;
+    }
+
+    function createEmptyHistoryRow(day) {
+      return {
+        day,
+        total_in: 0,
+        total_out: 0,
+        student_in: 0,
+        student_out: 0,
+        faculty_in: 0,
+        faculty_out: 0,
+        staff_in: 0,
+        staff_out: 0,
+        visitor_in: 0,
+        visitor_out: 0,
+        unknown_in: 0,
+        unknown_out: 0
+      };
+    }
+
+    function normalizeHistoryRow(row) {
+      return {
+        day: row.day,
+        total_in: Number(row.total_in) || 0,
+        total_out: Number(row.total_out) || 0,
+        student_in: Number(row.student_in) || 0,
+        student_out: Number(row.student_out) || 0,
+        faculty_in: Number(row.faculty_in) || 0,
+        faculty_out: Number(row.faculty_out) || 0,
+        staff_in: Number(row.staff_in) || 0,
+        staff_out: Number(row.staff_out) || 0,
+        visitor_in: Number(row.visitor_in) || 0,
+        visitor_out: Number(row.visitor_out) || 0,
+        unknown_in: Number(row.unknown_in) || 0,
+        unknown_out: Number(row.unknown_out) || 0
+      };
+    }
+
+    function fillHistory(history, mode) {
+      const normalized = history.map(normalizeHistoryRow);
+      if (normalized.length === 0) {
+        return [];
+      }
+      const map = new Map(normalized.map(row => [row.day, row]));
+      const start = parseBucket(normalized[0].day, mode);
+      const end = parseBucket(normalized[normalized.length - 1].day, mode);
+      if (!start || !end) {
+        return normalized;
+      }
+      const filled = [];
+      const stepMs = mode === 'hour' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      let current = new Date(start.getTime());
+      while (current <= end) {
+        const key = formatBucket(current, mode);
+        filled.push(map.get(key) || createEmptyHistoryRow(key));
+        current = new Date(current.getTime() + stepMs);
+      }
+      return filled;
+    }
+
+    function renderHistoryChart(history, mode) {
+      if (!historyChartEl || !window.Chart) {
+        return;
+      }
+      chartHistoryData = history;
+      const isHour = mode === 'hour';
+      const labels = history.map(row => row.day);
+      const studentIn = history.map(row => row.student_in);
+      const studentOut = history.map(row => row.student_out);
+      const tickStep = Math.max(1, Math.ceil(labels.length / (isHour ? 12 : 10)));
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Students IN',
+            data: studentIn,
+            borderColor: chartColors.studentIn,
+            backgroundColor: 'rgba(29, 78, 216, 0.12)',
+            borderWidth: 2,
+            tension: 0.32,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
+            spanGaps: true
+          },
+          {
+            label: 'Students OUT',
+            data: studentOut,
+            borderColor: chartColors.studentOut,
+            backgroundColor: 'rgba(220, 38, 38, 0.12)',
+            borderWidth: 2,
+            tension: 0.32,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: false,
+            spanGaps: true
+          }
+        ]
+      };
+
+      const options = {
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, boxHeight: 10 }
+          },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                if (!items.length) {
+                  return '';
+                }
+                const row = chartHistoryData[items[0].dataIndex];
+                if (!row) {
+                  return '';
+                }
+                return isHour ? `Time: ${row.day}` : `Date: ${row.day}`;
+              },
+              label: (context) => `${context.dataset.label}: ${formatCount(context.parsed.y)}`,
+              afterBody: (items) => {
+                if (!items.length) {
+                  return '';
+                }
+                const row = chartHistoryData[items[0].dataIndex];
+                if (!row) {
+                  return '';
+                }
+                const otherIn = (row.visitor_in || 0) + (row.unknown_in || 0);
+                const otherOut = (row.visitor_out || 0) + (row.unknown_out || 0);
+                const lines = [
+                  'In by role',
+                  `Students: ${formatCount(row.student_in)}`,
+                  `Faculty: ${formatCount(row.faculty_in)}`,
+                  `Staff: ${formatCount(row.staff_in)}`
+                ];
+                if (otherIn > 0) {
+                  lines.push(`Other: ${formatCount(otherIn)}`);
+                }
+                lines.push(
+                  'Out by role',
+                  `Students: ${formatCount(row.student_out)}`,
+                  `Faculty: ${formatCount(row.faculty_out)}`,
+                  `Staff: ${formatCount(row.staff_out)}`
+                );
+                if (otherOut > 0) {
+                  lines.push(`Other: ${formatCount(otherOut)}`);
+                }
+                return lines;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              callback: (value, index) => (index % tickStep === 0 ? labels[index] : '')
+            },
+            border: { display: false }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            grid: { color: 'rgba(148, 163, 184, 0.25)' },
+            border: { display: false }
+          }
+        }
+      };
+
+      if (historyChart) {
+        historyChart.data = data;
+        historyChart.options = options;
+        historyChart.update();
+        return;
+      }
+      historyChart = new Chart(historyChartEl, { type: 'line', data, options });
+    }
+
+    function renderRoleChart(roleTotals) {
+      if (!roleChartEl || !window.Chart) {
+        return;
+      }
+      const roleOrder = ['student', 'faculty', 'staff', 'visitor', 'unknown'];
+      const roleLabels = {
+        student: 'Students',
+        faculty: 'Faculty',
+        staff: 'Staff',
+        visitor: 'Visitors',
+        unknown: 'Unregistered'
+      };
+      const roleColors = {
+        student: chartColors.roleStudent,
+        faculty: chartColors.roleFaculty,
+        staff: chartColors.roleStaff,
+        visitor: chartColors.roleVisitor,
+        unknown: chartColors.roleUnknown
+      };
+      const labels = [];
+      const values = [];
+      const colors = [];
+      roleOrder.forEach(role => {
+        labels.push(roleLabels[role]);
+        values.push(Number(roleTotals[role] || 0));
+        colors.push(roleColors[role]);
+      });
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 0
+          }
+        ]
+      };
+
+      const options = {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, boxHeight: 10 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${formatCount(context.parsed)}`
+            }
+          }
+        },
+        cutout: '62%'
+      };
+
+      if (roleChart) {
+        roleChart.data = data;
+        roleChart.options = options;
+        roleChart.update();
+        return;
+      }
+      roleChart = new Chart(roleChartEl, { type: 'doughnut', data, options });
+    }
+
+    function renderDirectionChart(directionTotals) {
+      if (!directionChartEl || !window.Chart) {
+        return;
+      }
+      const inTotal = Number(directionTotals.in || 0);
+      const outTotal = Number(directionTotals.out || 0);
+
+      const data = {
+        labels: ['IN', 'OUT'],
+        datasets: [
+          {
+            data: [inTotal, outTotal],
+            backgroundColor: [chartColors.inTotal, chartColors.outTotal],
+            borderWidth: 0
+          }
+        ]
+      };
+
+      const options = {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, boxHeight: 10 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${formatCount(context.parsed)}`
+            }
+          }
+        },
+        cutout: '62%'
+      };
+
+      if (directionChart) {
+        directionChart.data = data;
+        directionChart.options = options;
+        directionChart.update();
+        return;
+      }
+      directionChart = new Chart(directionChartEl, { type: 'doughnut', data, options });
+    }
+
+    async function loadCharts() {
+      if (!historyChartEl) {
+        return;
+      }
+      if (!window.Chart) {
+        setChartStatus('Chart library failed to load');
+        return;
+      }
+      setChartStatus('Loading charts...');
+      try {
+        const mode = historyModeEl && historyModeEl.value === 'hour' ? 'hour' : 'day';
+        const adminUid = getAdminFilterValue();
+        const url = new URL('../api/get_scan_history.php', window.location.href);
+        url.searchParams.set('mode', mode);
+        if (adminUid) {
+          url.searchParams.set('admin_uid', adminUid);
+        }
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          setChartStatus('Unable to load chart data');
+          return;
+        }
+        const data = await res.json();
+        if (!data.ok) {
+          setChartStatus('Unable to load chart data');
+          return;
+        }
+        const filledHistory = fillHistory(Array.isArray(data.history) ? data.history : [], mode);
+        if (filledHistory.length === 0) {
+          setChartStatus('No scan history yet');
+          return;
+        }
+        setChartStatus('');
+        renderHistoryChart(filledHistory, mode);
+        renderRoleChart(data.role_totals || {});
+        renderDirectionChart(data.direction_totals || {});
+      } catch (err) {
+        setChartStatus('Unable to load chart data');
       }
     }
 
@@ -929,6 +1372,12 @@ if (!isset($_SESSION['admin_uid'])) {
       });
     }
 
+    if (historyModeEl) {
+      historyModeEl.addEventListener('change', () => {
+        loadCharts();
+      });
+    }
+
     registerFormEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       registerStatusEl.textContent = 'Saving...';
@@ -972,6 +1421,7 @@ if (!isset($_SESSION['admin_uid'])) {
     loadAdmins();
     loadScans();
     loadSuspicious();
+    loadCharts();
     showPrompt();
     if (adminFilterEl) {
       adminFilterEl.addEventListener('change', () => {
@@ -979,6 +1429,7 @@ if (!isset($_SESSION['admin_uid'])) {
         loadScans();
         loadUsers();
         loadSuspicious();
+        loadCharts();
       });
     }
     if (adminUserFilterEl) {
@@ -987,6 +1438,7 @@ if (!isset($_SESSION['admin_uid'])) {
         loadScans();
         loadUsers();
         loadSuspicious();
+        loadCharts();
       });
     }
     // Poll every 3 seconds
