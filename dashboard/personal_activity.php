@@ -157,7 +157,7 @@ if (!isset($_SESSION['admin_uid'])) {
         return;
       }
       try {
-        const res = await fetch('../api/get_admins.php');
+        const res = await fetch('../api/admin/get_admins.php');
         const data = await res.json();
         if (!data.ok) {
           return;
@@ -184,10 +184,10 @@ if (!isset($_SESSION['admin_uid'])) {
       }
       try {
         const adminUid = getAdminFilterValue();
-        const usersUrl = new URL('../api/get_users.php', window.location.href);
+        const usersUrl = new URL('../api/users/get_users.php', window.location.href);
         if (adminUid) usersUrl.searchParams.set('admin_uid', adminUid);
 
-        const adminUsersUrl = new URL('../api/get_admin_users.php', window.location.href);
+        const adminUsersUrl = new URL('../api/admin/get_admin_users.php', window.location.href);
         if (adminUid) adminUsersUrl.searchParams.set('admin_uid', adminUid);
 
         const [usersRes, adminUsersRes] = await Promise.all([
@@ -268,7 +268,7 @@ if (!isset($_SESSION['admin_uid'])) {
       }
       try {
         const adminUid = getAdminFilterValue();
-        const url = new URL('../api/get_personal_activity.php', window.location.href);
+        const url = new URL('../api/users/get_personal_activity.php', window.location.href);
         url.searchParams.set('uid', uid);
         url.searchParams.set('limit', '200');
         if (adminUid) {
@@ -346,7 +346,7 @@ if (!isset($_SESSION['admin_uid'])) {
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
         try {
-          await fetch('../api/admin_logout.php', { method: 'POST' });
+          await fetch('../api/admin/admin_logout.php', { method: 'POST' });
         } catch (err) {
           // ignore
         }

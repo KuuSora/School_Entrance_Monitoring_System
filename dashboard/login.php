@@ -306,75 +306,111 @@ if (isset($_SESSION['admin_uid'])) {
   </div>
 
   <script>
-    const statusTextEl = document.getElementById('statusText');
-    const scanLogEl = document.getElementById('scanLog');
-    const pillStateEl = document.getElementById('pillState');
-    let lastScanId = 0;
+    const ui = {
+      status: document.getElementById('statusText'),
+      log: document.getElementById('scanLog'),
+      pill: document.getElementById('pillState')
+    };
+    const endpoints = {
+      adminSignal: '../api/admin/get_admin_scan_signal.php?consume=1',
+      adminLogin: '../api/admin/admin_login.php',
+      dashboard: 'index.php'
+    };
+    const copy = {
+      notAuthorized: 'Scan detected but not authorized.',
+      waiting: 'Waiting for admin or Master Card',
+      waitingNew: 'Waiting for a new scan...',
+      verifying: 'Admin card detected. Verifying...',
+      verifyingPill: 'Verifying admin card',
+      networkError: 'Network error. Retrying...',
+      scannerError: 'Unable to read scanner. Retrying...'
+    };
+
+    const sessionStartMs = Date.now();
+    const staleGraceMs = 5000;
+    const pollIntervalMs = 1000;
+
+    function setStatus({ status, statusHtml, pill, log }) {
+      if (statusHtml !== undefined) {
+        ui.status.innerHTML = statusHtml;
+      } else if (status !== undefined) {
+        ui.status.textContent = status;
+      }
+      if (pill !== undefined) {
+        ui.pill.textContent = pill;
+      }
+      if (log !== undefined) {
+        ui.log.textContent = log;
+      }
+    }
+
+    function parseSignalTime(value) {
+      if (!value) {
+        return NaN;
+      }
+      const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+      const parsed = Date.parse(normalized);
+      return Number.isNaN(parsed) ? NaN : parsed;
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      return res.json();
+    }
 
     async function attemptLogin(uid) {
       try {
-        const res = await fetch('../api/admin_login.php', {
+        const data = await fetchJson(endpoints.adminLogin, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ uid })
         });
-        const data = await res.json();
         if (data.ok) {
-          statusTextEl.innerHTML = `Access granted. Welcome, <strong>${data.name}</strong>.`;
-          pillStateEl.textContent = 'Redirecting...';
+          setStatus({
+            statusHtml: `Access granted. Welcome, <strong>${data.name}</strong>.`,
+            pill: 'Redirecting...'
+          });
           setTimeout(() => {
-            window.location.href = 'index.php';
+            window.location.href = endpoints.dashboard;
           }, 600);
         } else {
-          statusTextEl.textContent = 'Scan detected but not authorized.';
-          pillStateEl.textContent = 'Waiting for admin or Master Card';
+          const errorMessage = data && data.error ? data.error : copy.notAuthorized;
+          setStatus({ status: errorMessage, pill: copy.waiting });
         }
       } catch (err) {
-        statusTextEl.textContent = 'Network error. Retrying...';
+        setStatus({ status: copy.networkError });
       }
     }
 
-    async function pollLatestScan() {
+    async function pollAdminSignal() {
       try {
-        const res = await fetch('../api/get_last_scan.php');
-        const data = await res.json();
+        const data = await fetchJson(endpoints.adminSignal);
         if (!data.ok || !data.data) {
           return;
         }
-        const scan = data.data;
-        if (scan.id && scan.id > lastScanId) {
-          lastScanId = scan.id;
-          scanLogEl.textContent = `Last scan UID: ${scan.uid} (${scan.created_at})`;
-          if (scan.is_admin && scan.uid) {
-            // check server-side block to avoid immediate re-login after logout
-            try {
-              const blkRes = await fetch('../api/get_auto_login_block.php');
-              const blk = await blkRes.json();
-              const blockedUntil = blk && blk.blocked_until ? blk.blocked_until : 0;
-              const nowSec = Math.floor(Date.now() / 1000);
-              if (blockedUntil && blockedUntil > nowSec) {
-                statusTextEl.textContent = 'Auto-login temporarily blocked';
-                pillStateEl.textContent = 'Waiting for admin or Master Card';
-                return;
-              }
-            } catch (e) {
-              // ignore block check errors and proceed
-            }
-            statusTextEl.textContent = 'Admin card detected. Verifying...';
-            pillStateEl.textContent = 'Verifying admin card';
-            await attemptLogin(scan.uid);
-          } else {
-            statusTextEl.textContent = 'Scan detected but not authorized.';
-            pillStateEl.textContent = 'Waiting for admin or Master Card';
-          }
+        const signal = data.data;
+        const signalMs = signal.ts ? signal.ts * 1000 : parseSignalTime(signal.created_at || '');
+        if (Number.isFinite(signalMs) && signalMs < sessionStartMs - staleGraceMs) {
+          setStatus({
+            log: `Last admin UID: ${signal.uid} (${signal.created_at || 'unknown time'})`,
+            status: copy.waitingNew,
+            pill: copy.waiting
+          });
+          return;
         }
+        setStatus({
+          log: `Last admin UID: ${signal.uid} (${signal.created_at || 'just now'})`,
+          status: copy.verifying,
+          pill: copy.verifyingPill
+        });
+        await attemptLogin(signal.uid);
       } catch (err) {
-        statusTextEl.textContent = 'Unable to read scanner. Retrying...';
+        setStatus({ status: copy.scannerError });
       }
     }
 
-    pollLatestScan();
-    setInterval(pollLatestScan, 1000);
+    pollAdminSignal();
+    setInterval(pollAdminSignal, pollIntervalMs);
   </script>
 </body>
 </html>

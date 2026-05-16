@@ -430,6 +430,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const viewDepartmentEl = document.getElementById('viewDepartment');
     const viewPurposeEl = document.getElementById('viewPurpose');
     const viewValidUntilEl = document.getElementById('viewValidUntil');
+    const registerSignalStartMs = Date.now();
     let lastScanId = 0;
     let currentRegisteredUser = null;
     let adminTagsByUid = {};
@@ -452,6 +453,15 @@ if (!isset($_SESSION['admin_uid'])) {
     if (window.Chart) {
       Chart.defaults.font.family = '"Space Grotesk", "Segoe UI", sans-serif';
       Chart.defaults.color = '#475569';
+    }
+
+    function parseSignalTime(value) {
+      if (!value) {
+        return NaN;
+      }
+      const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+      const parsed = Date.parse(normalized);
+      return Number.isNaN(parsed) ? NaN : parsed;
     }
 
     function formatHourRange(hour) {
@@ -864,7 +874,7 @@ if (!isset($_SESSION['admin_uid'])) {
       try {
         const mode = historyModeEl && historyModeEl.value === 'hour' ? 'hour' : 'day';
         const adminUid = getAdminFilterValue();
-        const url = new URL('../api/get_scan_history.php', window.location.href);
+        const url = new URL('../api/scans/get_scan_history.php', window.location.href);
         url.searchParams.set('mode', mode);
         if (adminUid) {
           url.searchParams.set('admin_uid', adminUid);
@@ -1036,7 +1046,7 @@ if (!isset($_SESSION['admin_uid'])) {
         return;
       }
       try {
-        const res = await fetch(`../api/get_user.php?uid=${encodeURIComponent(uid)}`);
+        const res = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
         const data = await res.json();
         if (data.ok && data.data) {
           showRegistered(data.data);
@@ -1054,10 +1064,10 @@ if (!isset($_SESSION['admin_uid'])) {
       }
       try {
         const adminUid = getAdminFilterValue();
-        const usersUrl = new URL('../api/get_users.php', window.location.href);
+        const usersUrl = new URL('../api/users/get_users.php', window.location.href);
         if (adminUid) usersUrl.searchParams.set('admin_uid', adminUid);
 
-        const adminUsersUrl = new URL('../api/get_admin_users.php', window.location.href);
+        const adminUsersUrl = new URL('../api/admin/get_admin_users.php', window.location.href);
         if (adminUid) adminUsersUrl.searchParams.set('admin_uid', adminUid);
 
         const [usersRes, adminUsersRes] = await Promise.all([
@@ -1135,7 +1145,7 @@ if (!isset($_SESSION['admin_uid'])) {
         return;
       }
       try {
-        const res = await fetch(`../api/get_user_logs.php?uid=${encodeURIComponent(uid)}&limit=200`);
+        const res = await fetch(`../api/users/get_user_logs.php?uid=${encodeURIComponent(uid)}&limit=200`);
         const data = await res.json();
         if (!data.ok) {
           userLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
@@ -1173,7 +1183,7 @@ if (!isset($_SESSION['admin_uid'])) {
       const adminUid = getAdminFilterValue();
       const suspiciousOnly = suspiciousOnlyEl && suspiciousOnlyEl.checked ? 1 : 0;
       try {
-        const url = new URL('../api/get_scans.php', window.location.href);
+        const url = new URL('../api/scans/get_scans.php', window.location.href);
         url.searchParams.set('limit', '200');
         if (adminUid) url.searchParams.set('admin_uid', adminUid);
         if (suspiciousOnly) url.searchParams.set('suspicious', '1');
@@ -1269,7 +1279,7 @@ if (!isset($_SESSION['admin_uid'])) {
     async function loadAdmins() {
       if (!adminFilterEl && !adminUserFilterEl) return;
       try {
-        const res = await fetch('../api/get_admins.php');
+        const res = await fetch('../api/admin/get_admins.php');
         if (!res.ok) {
           return;
         }
@@ -1313,7 +1323,7 @@ if (!isset($_SESSION['admin_uid'])) {
     async function loadSuspicious() {
       try {
         const adminUid = getAdminFilterValue();
-        const url = new URL('../api/get_suspicious.php', window.location.href);
+        const url = new URL('../api/scans/get_suspicious.php', window.location.href);
         url.searchParams.set('limit', '200');
         if (adminUid) url.searchParams.set('admin_uid', adminUid);
         const res = await fetch(url.toString());
@@ -1354,6 +1364,24 @@ if (!isset($_SESSION['admin_uid'])) {
       }
     }
 
+    async function pollRegisterSignal() {
+      try {
+        const res = await fetch('../api/signals/get_register_signal.php?consume=1');
+        const data = await res.json();
+        if (!data.ok || !data.data || !data.data.uid) {
+          return;
+        }
+        const signal = data.data;
+        const signalMs = signal.ts ? signal.ts * 1000 : parseSignalTime(signal.created_at || '');
+        if (Number.isFinite(signalMs) && signalMs < registerSignalStartMs - 5000) {
+          return;
+        }
+        showUnregistered(signal.uid, signal.created_at || '');
+      } catch (err) {
+        // ignore
+      }
+    }
+
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.href) {
@@ -1384,7 +1412,7 @@ if (!isset($_SESSION['admin_uid'])) {
 
       const formData = new FormData(registerFormEl);
       try {
-        const res = await fetch('../api/register_user.php', {
+        const res = await fetch('../api/users/register_user.php', {
           method: 'POST',
           body: new URLSearchParams(formData)
         });
@@ -1423,6 +1451,7 @@ if (!isset($_SESSION['admin_uid'])) {
     loadSuspicious();
     loadCharts();
     showPrompt();
+    pollRegisterSignal();
     if (adminFilterEl) {
       adminFilterEl.addEventListener('change', () => {
         syncAdminFilters(adminFilterEl.value);
@@ -1445,13 +1474,15 @@ if (!isset($_SESSION['admin_uid'])) {
     setInterval(loadScans, 3000);
     // Refresh suspicious reports every 10s
     setInterval(loadSuspicious, 10000);
+    // Poll for new registration scans from the admin scanner
+    setInterval(pollRegisterSignal, 1500);
 
     // Logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
         try {
-          await fetch('../api/admin_logout.php', { method: 'POST' });
+          await fetch('../api/admin/admin_logout.php', { method: 'POST' });
         } catch (err) {
           // ignore
         }

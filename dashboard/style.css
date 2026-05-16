@@ -61,23 +61,6 @@ body {
   color: #2a4a63;
   font-weight: 600;
 }
-.topbar-search {
-  margin-left: auto;
-  margin-right: 18px;
-  flex: 0 1 320px;
-}
-.topbar-search input {
-  width: 100%;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid #bcd9f0;
-  background: #ffffff;
-  color: #0b1b2b;
-  font-size: 13px;
-}
-.topbar-search input::placeholder {
-  color: #6c879e;
-}
 .suspicious-row {
   background: linear-gradient(90deg, rgba(239, 68, 68, 0.18), transparent);
 }
@@ -168,12 +151,6 @@ body {
   opacity: 0;
   width: 0;
   overflow: hidden;
-}
-.nav-title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  margin-bottom: var(--space-xs);
 }
 .tab-btn {
   border: 1px solid rgba(214, 230, 245, 0.9);

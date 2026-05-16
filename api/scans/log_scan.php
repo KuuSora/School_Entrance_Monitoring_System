@@ -1,8 +1,8 @@
 <?php
 header('Content-Type: application/json');
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/emailer.php';
-require_once __DIR__ . '/../bin/textbee_utils.php';
+require_once __DIR__ . '/../system/db.php';
+require_once __DIR__ . '/../system/emailer.php';
+require_once __DIR__ . '/../../bin/textbee_utils.php';
 
 // allow scanner to provide `admin_uid`, but prefer the logged-in admin session when present
 session_start();
@@ -12,6 +12,7 @@ $_direction = '';
 $_gpio = '';
 $posted_admin_uid = null;
 $admin_uid = null;
+$active_admin_file = __DIR__ . '/../state/active_admin.json';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uid = isset($_POST['uid']) ? trim($_POST['uid']) : '';
     $_direction = isset($_POST['direction']) ? trim($_POST['direction']) : '';
@@ -44,6 +45,16 @@ if ($session_admin_uid) {
             if ($found_admin) {
                 $admin_uid = $found_admin['uid'];
             }
+        }
+    }
+}
+
+if ($admin_uid === null && file_exists($active_admin_file)) {
+    $active_admin = json_decode(@file_get_contents($active_admin_file), true);
+    if (is_array($active_admin) && !empty($active_admin['uid'])) {
+        $active_uid = trim($active_admin['uid']);
+        if ($active_uid !== '' && preg_match('/^[0-9A-Fa-f:]+$/', $active_uid)) {
+            $admin_uid = $active_uid;
         }
     }
 }

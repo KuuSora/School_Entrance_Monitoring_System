@@ -2,23 +2,25 @@
 #include <HTTPClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 #include <Preferences.h>
 
-// RC522 wiring (SPI)
-#define SS_PIN_1 5
-#define SS_PIN_2 25
-#define RST_PIN 27  // CHANGED FROM 22 TO 27 TO FREE UP I2C FOR LCD
+// Single RC522 wiring (SPI)
+#define SS_PIN 25
+#define RST_PIN 27  // keep 27 to free up I2C for LCD
 
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
 const char* WIFI_PASS = "12345678";
-const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api/scans/log_scan.php";
+const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api/admin/report_admin_scan.php";
 const bool DEBUG_SERIAL = true;
-const int BUZZER_PIN = 4;
+
+// Master card UID (must match server settings)
+const char* MASTER_UID = "97:2A:59:06";
 
 Preferences prefs;
 String serverTarget;
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+
 void debugPrintWifiInfo() {
   if (!DEBUG_SERIAL) {
     return;
@@ -90,6 +92,36 @@ String buildServerUrl(const String& target) {
   String path = normalizePath(target);
   IPAddress gw = WiFi.gatewayIP();
   return "http://" + gw.toString() + path;
+}
+
+String extractBaseTarget(const String& target) {
+  String base = target;
+  int queryIndex = base.indexOf('?');
+  if (queryIndex >= 0) {
+    base = base.substring(0, queryIndex);
+  }
+  int hashIndex = base.indexOf('#');
+  if (hashIndex >= 0) {
+    base = base.substring(0, hashIndex);
+  }
+  int lastSlash = base.lastIndexOf('/');
+  if (lastSlash >= 0) {
+    base = base.substring(0, lastSlash + 1);
+  }
+  if (base.length() == 0) {
+    base = String(DEFAULT_SERVER_PATH);
+    int fallbackSlash = base.lastIndexOf('/');
+    base = base.substring(0, fallbackSlash + 1);
+  }
+  return base;
+}
+
+String buildEndpointUrl(const String& filename) {
+  String base = extractBaseTarget(serverTarget);
+  if (!base.endsWith("/")) {
+    base += "/";
+  }
+  return buildServerUrl(base + filename);
 }
 
 void handleSerialCommands() {
@@ -184,11 +216,6 @@ void handleSerialCommands() {
   Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
 }
 
-
-MFRC522 mfrc522_1(SS_PIN_1, RST_PIN);
-MFRC522 mfrc522_2(SS_PIN_2, RST_PIN);
-LiquidCrystal_I2C lcd(0x27, 16, 2); // 0x27 is the default I2C address for most LCDs
-
 String uidToString(MFRC522::Uid* uid) {
   String out = "";
   for (byte i = 0; i < uid->size; i++) {
@@ -204,14 +231,79 @@ String uidToString(MFRC522::Uid* uid) {
   return out;
 }
 
-
-void beepOk() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(100);
-  digitalWrite(BUZZER_PIN, LOW);
+String normalizeUid(const String& uid) {
+  String out = "";
+  for (size_t i = 0; i < uid.length(); i++) {
+    char c = uid.charAt(i);
+    if (isxdigit(c)) {
+      out += (char)toupper(c);
+    }
+  }
+  return out;
 }
 
-bool handleScan(MFRC522& reader, int gpioPin) {
+void showStatus(const String& line1, const String& line2) {
+  if (!DEBUG_SERIAL) {
+    return;
+  }
+  Serial.print("STATUS: ");
+  Serial.print(line1);
+  if (line2.length() > 0) {
+    Serial.print(" | ");
+    Serial.print(line2);
+  }
+  Serial.println();
+}
+
+bool checkAdminByApi(const String& uid) {
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+  HTTPClient http;
+  String url = buildEndpointUrl("admin_login.php");
+  http.begin(url);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  String body = "uid=" + uid;
+  int code = http.POST(body);
+  String resp = http.getString();
+  if (DEBUG_SERIAL) {
+    Serial.print("POST ");
+    Serial.println(url);
+    Serial.print("HTTP ");
+    Serial.print(code);
+    Serial.print(" ");
+    Serial.println(httpCodeToText(code));
+    Serial.print("Response: ");
+    Serial.println(resp);
+  }
+  http.end();
+  return code == HTTP_CODE_OK && resp.indexOf("\"ok\":true") >= 0;
+}
+
+bool checkRegisteredUser(const String& uid) {
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+  HTTPClient http;
+  String url = buildEndpointUrl("get_user.php") + "?uid=" + uid;
+  http.begin(url);
+  int code = http.GET();
+  String resp = http.getString();
+  if (DEBUG_SERIAL) {
+    Serial.print("GET ");
+    Serial.println(url);
+    Serial.print("HTTP ");
+    Serial.print(code);
+    Serial.print(" ");
+    Serial.println(httpCodeToText(code));
+    Serial.print("Response: ");
+    Serial.println(resp);
+  }
+  http.end();
+  return code == HTTP_CODE_OK && resp.indexOf("\"ok\":true") >= 0;
+}
+
+bool handleScan(MFRC522& reader) {
   if (!reader.PICC_IsNewCardPresent()) {
     return false;
   }
@@ -223,77 +315,42 @@ bool handleScan(MFRC522& reader, int gpioPin) {
   }
 
   String uid = uidToString(&reader.uid);
+  String uidNorm = normalizeUid(uid);
+  String masterNorm = normalizeUid(String(MASTER_UID));
+
   Serial.print("UID: ");
   Serial.println(uid);
-  beepOk();
+  showStatus("Scanning...", "Please wait");
 
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Scanning...");
-
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    String url = buildServerUrl(serverTarget);
-    http.begin(url);
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-
-    String body = "uid=" + uid + "&gpio=" + String(gpioPin);
-    int code = http.POST(body);
-    String resp = http.getString();
-    if (DEBUG_SERIAL) {
-      Serial.print("POST ");
-      Serial.println(url);
-      Serial.print("HTTP ");
-      Serial.print(code);
-      Serial.print(" ");
-      Serial.println(httpCodeToText(code));
-      Serial.print("Response: ");
-      Serial.println(resp);
-    }
-    http.end();
-
-    // Show result on LCD
-    if (code == 200) {
-      lcd.clear();
-      if (resp.indexOf("Access Granted") != -1) {
-        // Extract Name from JSON {"name":"John"}
-        int nameStart = resp.indexOf("\"name\":\"") + 8;
-        int nameEnd = resp.indexOf("\"", nameStart);
-        String name = resp.substring(nameStart, nameEnd);
-
-        lcd.setCursor(0, 0);
-        lcd.print("Access Granted");
-        lcd.setCursor(0, 1);
-        lcd.print(name.substring(0, 16)); // Max 16 chars
-      } else if (resp.indexOf("New Card") != -1) {
-        lcd.setCursor(0, 0);
-        lcd.print("New Card");
-        lcd.setCursor(0, 1);
-        lcd.print("Please Register");
-      }
-    } else {
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Network Error");
-      lcd.setCursor(0, 1);
-      lcd.print(code);
-    }
-  } else {
+  if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected");
     debugPrintWifiInfo();
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi Disconnect");
+    showStatus("WiFi Disconnect", "Check network");
+  } else {
+    bool isAdmin = false;
+    if (uidNorm == masterNorm) {
+      isAdmin = true;
+    } else {
+      isAdmin = checkAdminByApi(uid);
+    }
+
+    if (isAdmin) {
+      showStatus("Admin Access", "Open dashboard");
+    } else {
+      bool registered = checkRegisteredUser(uid);
+      if (registered) {
+        showStatus("Registered Card", "Not admin");
+      } else {
+        showStatus("New Card", "Go Register");
+      }
+    }
   }
 
   reader.PICC_HaltA();
   reader.PCD_StopCrypto1();
 
-  delay(3000); // Leave the message on the screen for 3 seconds
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Ready to Scan");
-
+  delay(3000);
+  showStatus("Ready to Scan", "");
   return true;
 }
 
@@ -308,28 +365,15 @@ void setup() {
     Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
-  pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
-
-  pinMode(SS_PIN_1, OUTPUT);
-  pinMode(SS_PIN_2, OUTPUT);
-  digitalWrite(SS_PIN_1, HIGH);
-  digitalWrite(SS_PIN_2, HIGH);
+  pinMode(SS_PIN, OUTPUT);
+  digitalWrite(SS_PIN, HIGH);
 
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-
-  // Initialize LCD
-  lcd.init();
-  lcd.backlight();
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Connecting WiFi");
 
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    lcd.print(".");
   }
   Serial.println(" connected");
   debugPrintWifiInfo();
@@ -339,30 +383,20 @@ void setup() {
   }
 
   SPI.begin();
-  mfrc522_1.PCD_Init();
-  mfrc522_2.PCD_Init();
-  Serial.println("RC522 readers ready");
+  mfrc522.PCD_Init();
+  Serial.println("RC522 reader ready");
   if (DEBUG_SERIAL) {
-    byte v1 = mfrc522_1.PCD_ReadRegister(MFRC522::VersionReg);
-    byte v2 = mfrc522_2.PCD_ReadRegister(MFRC522::VersionReg);
-    Serial.print("RC522 #1 version: 0x");
-    Serial.println(v1, HEX);
-    Serial.print("RC522 #2 version: 0x");
-    Serial.println(v2, HEX);
+    byte v = mfrc522.PCD_ReadRegister(MFRC522::VersionReg);
+    Serial.print("RC522 version: 0x");
+    Serial.println(v, HEX);
   }
 
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Ready to Scan");
+  showStatus("Ready to Scan", "");
 }
 
 void loop() {
   handleSerialCommands();
-  bool handled = handleScan(mfrc522_1, SS_PIN_1);
-  if (!handled) {
-    handled = handleScan(mfrc522_2, SS_PIN_2);
-  }
-  if (!handled) {
+  if (!handleScan(mfrc522)) {
     delay(50);
   }
 }

@@ -13,9 +13,16 @@ if (ini_get('session.use_cookies')) {
 }
 session_destroy();
 
-// Create a short auto-login block so background scanner activity doesn't immediately re-login
-$block_file = __DIR__ . '/auto_login_block.json';
-$blocked_until = time() + 60; // seconds to block auto-login after logout
-@file_put_contents($block_file, json_encode(['blocked_until' => $blocked_until]));
+// Remove any existing auto-login block so re-login is immediate
+$block_file = __DIR__ . '/../state/auto_login_block.json';
+if (file_exists($block_file)) {
+    @unlink($block_file);
+}
+
+// Clear active admin marker
+$active_admin_file = __DIR__ . '/../state/active_admin.json';
+if (file_exists($active_admin_file)) {
+    @unlink($active_admin_file);
+}
 
 echo json_encode(['ok' => true, 'message' => 'Logged out']);

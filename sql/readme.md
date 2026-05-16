@@ -64,7 +64,7 @@ Expected responses (examples):
 ## Registration Endpoint
 Register or update a card with role-specific details:
 
-- URL: /server/api/register_user.php
+- URL: /server/School_Entrance_Monitoring_System/api/users/register_user.php
 - Method: POST
 - Content-Type: application/x-www-form-urlencoded
 - Body (common fields):

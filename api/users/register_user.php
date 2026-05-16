@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../system/db.php';
 
 function tableHasColumn(mysqli $mysqli, string $table, string $column): bool {
     $tbl = $mysqli->real_escape_string($table);

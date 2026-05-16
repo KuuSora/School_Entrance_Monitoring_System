@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../system/db.php';
 
 $admin_uid_filter = isset($_GET['admin_uid']) ? trim($_GET['admin_uid']) : null;
 $mode = isset($_GET['mode']) ? strtolower(trim($_GET['mode'])) : 'day';
