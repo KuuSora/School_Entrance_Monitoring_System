@@ -3,15 +3,45 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <Preferences.h>
+#include "esp_wifi.h"
+
+// ===================== MODE SWITCH =====================
+// Leave this defined: ESP32 becomes the hotspot, laptop connects to it.
+// Comment it out to go back to the old behavior (ESP32 joins your
+// laptop's hotspot as a client).
+#define AP_MODE
+// =========================================================
 
 // Single RC522 wiring (SPI)
 #define SS_PIN 25
 #define RST_PIN 27  // keep 27 to free up I2C for LCD
 
-const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
-const char* WIFI_PASS = "12345678";
-const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api/admin/report_admin_scan.php";
+#ifdef AP_MODE
+  // ESP32 becomes the WiFi hotspot. Your laptop connects to THIS network.
+  const char* AP_SSID = "SEMS-ESP32";
+  const char* AP_PASS = "sems12345";   // 8+ chars required, or "" for open network
+  IPAddress AP_LOCAL_IP(192, 168, 4, 1);
+  IPAddress AP_GATEWAY(192, 168, 4, 1);
+  IPAddress AP_SUBNET(255, 255, 255, 0);
+
+  // Your laptop MUST be given a STATIC IP on this subnet (instructions
+  // below). This is the address your XAMPP server will be reached at.
+  const char* SERVER_IP = "192.168.4.2";
+#else
+  const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
+  const char* WIFI_PASS = "12345678";
+#endif
+
+// This is the ROOT of the api/ folder only - NOT a specific .php file.
+// Each endpoint below appends its own subfolder (admin/signals/users) on top
+// of this, since your project splits endpoints across multiple folders.
+const char* DEFAULT_SERVER_PATH = "/School_Entrance_Monitoring_Systems/api";
 const bool DEBUG_SERIAL = true;
+
+// Subfolders under api/, matching your actual htdocs layout.
+const char* SUBFOLDER_ADMIN = "admin";
+const char* SUBFOLDER_SIGNALS = "signals";
+const char* SUBFOLDER_USERS = "users";
 
 // Master card UID (must match server settings)
 const char* MASTER_UID = "97:2A:59:06";
@@ -21,10 +51,30 @@ String serverTarget;
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
+// True when the ESP32's network side is usable enough to attempt an HTTP call.
+bool networkReady() {
+#ifdef AP_MODE
+  // "Ready" once at least one device (your laptop) has joined the hotspot.
+  // Note: this doesn't guarantee it's specifically the laptop — if you ever
+  // let other devices join this network, this check just becomes advisory.
+  return WiFi.softAPgetStationNum() > 0;
+#else
+  return WiFi.status() == WL_CONNECTED;
+#endif
+}
+
 void debugPrintWifiInfo() {
   if (!DEBUG_SERIAL) {
     return;
   }
+#ifdef AP_MODE
+  Serial.print("AP SSID: ");
+  Serial.println(AP_SSID);
+  Serial.print("AP IP: ");
+  Serial.println(WiFi.softAPIP());
+  Serial.print("Connected stations: ");
+  Serial.println(WiFi.softAPgetStationNum());
+#else
   Serial.print("WiFi status: ");
   Serial.println(WiFi.status());
   Serial.print("SSID: ");
@@ -33,6 +83,7 @@ void debugPrintWifiInfo() {
   Serial.println(WiFi.localIP());
   Serial.print("RSSI: ");
   Serial.println(WiFi.RSSI());
+#endif
 }
 
 const char* httpCodeToText(int code) {
@@ -90,38 +141,42 @@ String buildServerUrl(const String& target) {
   }
 
   String path = normalizePath(target);
+#ifdef AP_MODE
+  // In AP mode there's no upstream gateway to borrow an IP from - the
+  // laptop's address has to be known ahead of time (static IP).
+  return "http://" + String(SERVER_IP) + path;
+#else
   IPAddress gw = WiFi.gatewayIP();
   return "http://" + gw.toString() + path;
+#endif
 }
 
-String extractBaseTarget(const String& target) {
-  String base = target;
-  int queryIndex = base.indexOf('?');
-  if (queryIndex >= 0) {
-    base = base.substring(0, queryIndex);
+// Joins "<api root>/<subfolder>/<filename>", handling slashes cleanly.
+String joinApiPath(String root, const String& subfolder, const String& filename) {
+  root.trim();
+  if (root.length() == 0) {
+    root = String(DEFAULT_SERVER_PATH);
   }
-  int hashIndex = base.indexOf('#');
-  if (hashIndex >= 0) {
-    base = base.substring(0, hashIndex);
+  if (!root.endsWith("/")) {
+    root += "/";
   }
-  int lastSlash = base.lastIndexOf('/');
-  if (lastSlash >= 0) {
-    base = base.substring(0, lastSlash + 1);
-  }
-  if (base.length() == 0) {
-    base = String(DEFAULT_SERVER_PATH);
-    int fallbackSlash = base.lastIndexOf('/');
-    base = base.substring(0, fallbackSlash + 1);
-  }
-  return base;
+  return root + subfolder + "/" + filename;
 }
 
-String buildEndpointUrl(const String& filename) {
-  String base = extractBaseTarget(serverTarget);
-  if (!base.endsWith("/")) {
-    base += "/";
+// Builds the full URL for a specific endpoint, given which subfolder it
+// lives in (admin / signals / users) and its filename. This replaces the
+// old assumption that every endpoint shared one folder.
+String buildEndpointUrl(const String& subfolder, const String& filename) {
+  if (serverTarget.startsWith("http://") || serverTarget.startsWith("https://")) {
+    // Explicit full URL override (e.g. via SET_URL) - append subfolder/filename directly.
+    String base = serverTarget;
+    if (!base.endsWith("/")) {
+      base += "/";
+    }
+    return base + subfolder + "/" + filename;
   }
-  return buildServerUrl(base + filename);
+  String path = joinApiPath(serverTarget, subfolder, filename);
+  return buildServerUrl(path);
 }
 
 void handleSerialCommands() {
@@ -135,6 +190,10 @@ void handleSerialCommands() {
     return;
   }
 
+  // NOTE: SET_URL / SET_PATH now set the API ROOT (the folder that
+  // contains admin/, signals/, users/) - not a single endpoint file.
+  // Example: SET_PATH /School_Entrance_Monitoring_Systems/api
+
   if (line.startsWith("SET_URL ")) {
     String newTarget = line.substring(8);
     newTarget.trim();
@@ -144,13 +203,13 @@ void handleSerialCommands() {
     }
     if (saveServerTarget(newTarget)) {
       serverTarget = newTarget;
-      Serial.print("Server target updated: ");
+      Serial.print("API root updated: ");
       Serial.println(serverTarget);
-      if (WiFi.status() == WL_CONNECTED) {
-        Serial.print("Resolved URL: ");
-        Serial.println(buildServerUrl(serverTarget));
+      if (networkReady()) {
+        Serial.print("Example resolved endpoint: ");
+        Serial.println(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"));
       } else {
-        Serial.println("WiFi not connected; URL will resolve after connect");
+        Serial.println("Network not ready; URL will resolve once connected");
       }
     } else {
       Serial.println("Failed to save Server target");
@@ -168,13 +227,13 @@ void handleSerialCommands() {
     newPath = normalizePath(newPath);
     if (saveServerTarget(newPath)) {
       serverTarget = newPath;
-      Serial.print("Server path updated: ");
+      Serial.print("API root updated: ");
       Serial.println(serverTarget);
-      if (WiFi.status() == WL_CONNECTED) {
-        Serial.print("Resolved URL: ");
-        Serial.println(buildServerUrl(serverTarget));
+      if (networkReady()) {
+        Serial.print("Example resolved endpoint: ");
+        Serial.println(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"));
       } else {
-        Serial.println("WiFi not connected; URL will resolve after connect");
+        Serial.println("Network not ready; URL will resolve once connected");
       }
     } else {
       Serial.println("Failed to save Server path");
@@ -183,17 +242,17 @@ void handleSerialCommands() {
   }
 
   if (line == "GET_URL") {
-    Serial.print("Server URL: ");
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println(buildServerUrl(serverTarget));
+    Serial.print("Example resolved endpoint: ");
+    if (networkReady()) {
+      Serial.println(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"));
     } else {
-      Serial.println("(WiFi not connected)");
+      Serial.println("(network not ready)");
     }
     return;
   }
 
   if (line == "GET_TARGET") {
-    Serial.print("Server target: ");
+    Serial.print("API root: ");
     Serial.println(serverTarget);
     return;
   }
@@ -201,11 +260,11 @@ void handleSerialCommands() {
   if (line == "RESET_URL") {
     if (clearServerUrl()) {
       serverTarget = String(DEFAULT_SERVER_PATH);
-      Serial.print("Server target reset: ");
+      Serial.print("API root reset: ");
       Serial.println(serverTarget);
-      if (WiFi.status() == WL_CONNECTED) {
-        Serial.print("Resolved URL: ");
-        Serial.println(buildServerUrl(serverTarget));
+      if (networkReady()) {
+        Serial.print("Example resolved endpoint: ");
+        Serial.println(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"));
       }
     } else {
       Serial.println("No stored Server URL to clear");
@@ -213,7 +272,7 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
+  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, or RESET_URL");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -256,11 +315,11 @@ void showStatus(const String& line1, const String& line2) {
 }
 
 bool checkAdminByApi(const String& uid) {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (!networkReady()) {
     return false;
   }
   HTTPClient http;
-  String url = buildEndpointUrl("admin_login.php");
+  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "admin_login.php");
   http.begin(url);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   String body = "uid=" + uid;
@@ -281,11 +340,11 @@ bool checkAdminByApi(const String& uid) {
 }
 
 bool checkRegisteredUser(const String& uid) {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (!networkReady()) {
     return false;
   }
   HTTPClient http;
-  String url = buildEndpointUrl("get_user.php") + "?uid=" + uid;
+  String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
   http.begin(url);
   int code = http.GET();
   String resp = http.getString();
@@ -303,12 +362,11 @@ bool checkRegisteredUser(const String& uid) {
   return code == HTTP_CODE_OK && resp.indexOf("\"ok\":true") >= 0;
 }
 
-bool postSignal(const String& endpoint, const String& uid) {
-  if (WiFi.status() != WL_CONNECTED) {
+bool postSignal(const String& url, const String& uid) {
+  if (!networkReady()) {
     return false;
   }
   HTTPClient http;
-  String url = buildEndpointUrl(endpoint);
   http.begin(url);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   String body = "uid=" + uid;
@@ -347,10 +405,10 @@ bool handleScan(MFRC522& reader) {
   Serial.println(uid);
   showStatus("Scanning...", "Please wait");
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected");
+  if (!networkReady()) {
+    Serial.println("Network not ready (laptop not connected to hotspot?)");
     debugPrintWifiInfo();
-    showStatus("WiFi Disconnect", "Check network");
+    showStatus("No Connection", "Check network");
   } else {
     bool isAdmin = false;
     if (uidNorm == masterNorm) {
@@ -360,14 +418,14 @@ bool handleScan(MFRC522& reader) {
     }
 
     if (isAdmin) {
-      postSignal("report_admin_scan.php", uid);
+      postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
       showStatus("Admin Access", "Open dashboard");
     } else {
       bool registered = checkRegisteredUser(uid);
       if (registered) {
         showStatus("Registered Card", "Not admin");
       } else {
-        postSignal("report_register_scan.php", uid);
+        postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
         showStatus("New Card", "Go Register");
       }
     }
@@ -387,26 +445,37 @@ void setup() {
 
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
-    Serial.print("Server target: ");
+    Serial.print("API root: ");
     Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
+    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, RESET_URL");
   }
 
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
 
+#ifdef AP_MODE
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
+  WiFi.softAP(AP_SSID, AP_PASS);
+  esp_wifi_set_ps(WIFI_PS_NONE);  // stops power-save related reconnects/CCMP replay errors
+  Serial.print("Hotspot started: ");
+  Serial.println(AP_SSID);
+  Serial.print("Connect your laptop to it, then give it the static IP: ");
+  Serial.println(SERVER_IP);
+#else
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println(" connected");
+#endif
+
   debugPrintWifiInfo();
   if (DEBUG_SERIAL) {
-    Serial.print("Resolved URL: ");
-    Serial.println(buildServerUrl(serverTarget));
+    Serial.print("Example resolved endpoint: ");
+    Serial.println(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"));
   }
 
   SPI.begin();
