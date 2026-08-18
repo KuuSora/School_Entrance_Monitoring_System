@@ -19,7 +19,7 @@ if ($admin_uid_filter) {
 $whereClause = implode(' AND ', $whereParts);
 
 $sql = "SELECT s2.id, s2.uid, s2.direction, s2.created_at, s1.id AS prev_id, s1.created_at AS prev_created_at, s2.admin_uid, COALESCE(a.name, '') AS admin_name,
-               COALESCE(p.name, 'New User') AS name
+               COALESCE(p.name, 'New User') AS name, COALESCE(p.role, 'unknown') AS role
         FROM scans s1
         JOIN scans s2 ON s2.uid = s1.uid AND s2.id = (
             SELECT MIN(x.id) FROM scans x WHERE x.uid = s1.uid AND x.id > s1.id

@@ -75,9 +75,9 @@ if ($direction === '') {
     }
 }
 
-if ($direction !== 'IN' && $direction !== 'OUT') {
+if ($direction !== 'IN' && $direction !== 'OUT' && $direction !== 'PORTABLE' && $direction !== 'ADMIN') {
     http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Missing or invalid direction (use IN/OUT or gpio 5/25)']);
+    echo json_encode(['ok' => false, 'error' => 'Missing or invalid direction (use IN/OUT/PORTABLE/ADMIN or gpio 5/25)']);
     exit;
 }
 

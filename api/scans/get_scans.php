@@ -7,6 +7,30 @@ if ($limit <= 0 || $limit > 500) {
     $limit = 200;
 }
 
+$resetHour = 0;
+$resSetting = $mysqli->query("SELECT setting_value FROM settings WHERE setting_key = 'daily_reset_hour' LIMIT 1");
+if ($resSetting) {
+    $settingRow = $resSetting->fetch_assoc();
+    $resSetting->free();
+    if ($settingRow && is_numeric($settingRow['setting_value'])) {
+        $resetHour = (int)$settingRow['setting_value'];
+    }
+}
+
+$now = new DateTime('now');
+$currentHour = (int)$now->format('G');
+if ($currentHour >= $resetHour) {
+    $dayStart = clone $now;
+    $dayStart->setTime($resetHour, 0, 0);
+} else {
+    $dayStart = clone $now;
+    $dayStart->modify('-1 day')->setTime($resetHour, 0, 0);
+}
+$dayStartStr = $dayStart->format('Y-m-d H:i:s');
+$dayEnd = clone $dayStart;
+$dayEnd->modify('+1 day');
+$dayEndStr = $dayEnd->format('Y-m-d H:i:s');
+
 // Add admin_uid filter if provided
 $admin_uid_filter = isset($_GET['admin_uid']) ? trim($_GET['admin_uid']) : null;
 $suspicious_filter = isset($_GET['suspicious']) ? (int)$_GET['suspicious'] : 0;
@@ -109,7 +133,7 @@ $stats['today'] = fetchStatsRow(
     $mysqli,
     "SELECT COUNT(*) AS total, SUM(direction = 'IN') AS in_count, SUM(direction = 'OUT') AS out_count
      FROM scans
-     WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)"
+     WHERE created_at >= '{$dayStartStr}' AND created_at < '{$dayEndStr}'"
 );
 
 $stats['week'] = fetchStatsRow(
@@ -150,13 +174,13 @@ $stats['active_students_7d'] = fetchCount(
     "SELECT COUNT(DISTINCT s.uid) AS c
      FROM scans s
      JOIN students st ON s.uid = st.uid
-     WHERE s.created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+     WHERE s.created_at >= DATE_SUB('{$dayStartStr}', INTERVAL 6 DAY)"
 );
 
 $peakRes = $mysqli->query(
     "SELECT HOUR(created_at) AS hour, COUNT(*) AS c
      FROM scans
-     WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+     WHERE created_at >= '{$dayStartStr}' AND created_at < '{$dayEndStr}'
      GROUP BY hour
      ORDER BY c DESC
      LIMIT 3"
@@ -189,7 +213,7 @@ $stats['alerts']['scans_last_10_min'] = fetchCount(
 );
 $stats['alerts']['unique_today'] = fetchCount(
     $mysqli,
-    "SELECT COUNT(DISTINCT uid) AS c FROM scans WHERE created_at >= CURDATE() AND created_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)"
+    "SELECT COUNT(DISTINCT uid) AS c FROM scans WHERE created_at >= '{$dayStartStr}' AND created_at < '{$dayEndStr}'"
 );
 
 $insideRes = $mysqli->query(
@@ -227,7 +251,7 @@ $consecutiveRes = $mysqli->query(
      LEFT JOIN scans s2
        ON s2.uid = s1.uid
       AND s2.id = (SELECT MAX(id) FROM scans s3 WHERE s3.uid = s1.uid AND s3.id < s1.id)
-     WHERE s1.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)"
+     WHERE s1.created_at >= '{$dayStartStr}'"
 );
 if ($consecutiveRes) {
     $consecutiveRow = $consecutiveRes->fetch_assoc();
