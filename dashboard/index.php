@@ -12,11 +12,272 @@ if (!isset($_SESSION['admin_uid'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RFID Dashboard</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    :root {
+      --bg-color: #f4f7fb;
+      --card-bg: #ffffff;
+      --text-color: #102033;
+      --muted-color: #5b6b7f;
+      --border-color: #d8e1ea;
+      --accent-color: #0f766e;
+      --accent-color-light: #e6fffb;
+      --shadow-color: rgba(0, 0, 0, 0.05);
+      --danger-color: #dc2626;
+      --danger-bg: #fef2f2;
+      --sidebar-bg: #ffffff;
+      --sidebar-accent: #0f766e;
+      --sidebar-ink: #102033;
+      --sidebar-hover: rgba(15, 118, 110, 0.08);
+      --sidebar-active-bg: #e6fffb;
+      --sidebar-icon-bg: #edf7f6;
+    }
+
+    .dark-mode {
+      --bg-color: #242547;
+      --card-bg: #2c2d57;
+      --text-color: #f2f2fb;
+      --muted-color: #b495a4;
+      --border-color: #3b3d77;
+      --accent-color: #882eca;
+      --accent-color-light: rgba(136, 46, 202, 0.16);
+      --shadow-color: rgba(0, 0, 0, 0.34);
+      --danger-color: #ff8fa0;
+      --danger-bg: rgba(255, 143, 160, 0.14);
+      --sidebar-bg: #242547;
+      --sidebar-accent: #61d29a;
+      --sidebar-ink: #f2f2fb;
+      --sidebar-hover: rgba(136, 46, 202, 0.12);
+      --sidebar-active-bg: rgba(97, 210, 154, 0.18);
+      --sidebar-icon-bg: #36136e;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .topbar {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: 0 2px 4px var(--shadow-color);
+    }
+
+    .sidebar {
+      background-color: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
+    }
+
+    .sidebar .tab-btn {
+      color: var(--sidebar-ink);
+      opacity: 0.92;
+    }
+
+    .sidebar .tab-btn:hover {
+      background: var(--sidebar-hover);
+      opacity: 1;
+    }
+
+    .sidebar .tab-btn.active {
+      background: var(--sidebar-active-bg);
+      color: var(--sidebar-accent);
+      opacity: 1;
+      border-right: none;
+      box-shadow: inset 3px 0 0 var(--sidebar-accent);
+    }
+
+    .sidebar .tab-icon {
+      background: var(--sidebar-icon-bg);
+      color: var(--sidebar-accent);
+      border: 1.5px solid transparent;
+    }
+
+    .sidebar .tab-btn:hover .tab-icon {
+      background: var(--sidebar-active-bg);
+      color: var(--sidebar-accent);
+      border-color: var(--sidebar-accent);
+    }
+
+    .sidebar .tab-btn.active .tab-icon {
+      background: var(--sidebar-accent);
+      color: #ffffff;
+      border-color: transparent;
+    }
+
+    .sidebar .tab-icon svg path {
+      fill: currentColor;
+    }
+
+    .sidebar .tab-btn:hover .tab-icon svg path {
+      fill: var(--sidebar-accent);
+    }
+
+    .sidebar .tab-btn.active .tab-icon svg path {
+      fill: #ffffff;
+    }
+
+    .sidebar .brand-dot {
+      background: var(--sidebar-accent);
+      color: #ffffff;
+    }
+
+    .sidebar .nav-brand {
+      background: #f8fbfc;
+      border: 1px solid var(--border-color);
+    }
+
+    .dark-mode .sidebar .nav-brand {
+      background: #2c2d57;
+      border-color: #3b3d77;
+    }
+
+    .card, .panel-fixed {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px var(--shadow-color);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .card .value {
+      color: var(--sidebar-accent);
+      font-size: 2.5rem;
+      font-weight: 700;
+    }
+
+    .alert-card .value {
+      color: var(--danger-color);
+    }
+
+    .btn {
+      border-radius: 8px;
+    }
+
+    .panel-fixed {
+      box-shadow: none;
+    }
+
+    .theme-switcher {
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      transition: background-color 0.2s;
+    }
+    .theme-switcher:hover {
+      background-color: var(--accent-color-light);
+    }
+
+    .id-card-display {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      perspective: 1000px;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      opacity: 0;
+      transform: translateX(-50%) translateY(-20px) rotateX(-10deg);
+    }
+    .id-card-display.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) rotateX(0deg);
+    }
+    .id-card {
+      width: 280px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+    .id-card-header {
+      background-image: url('/School_Entrance_Monitoring_Systems/image/idcapsu.png');
+      background-size: cover;
+      background-position: center;
+      height: 60px;
+      color: transparent;
+    }
+    .id-card-body {
+      padding: 20px;
+      text-align: center;
+    }
+    .id-card-photo {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin: 0 auto 16px auto;
+      overflow: hidden;
+      border: 4px solid #eef6ff;
+    }
+    .id-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .id-card-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .id-card-name.yellogreen { color: #9ACD32; }
+    .id-card-info { font-size: 14px; color: #555; margin-bottom: 2px; }
+  </style>
+  <style>
+    /* Dashboard Preview Layout */
+    .preview-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: var(--space-lg);
+      align-items: flex-start;
+    }
+    .preview-layout > .stats-column {
+      min-width: 0;
+    }
+    .preview-layout > .id-card-container {
+      min-width: 0;
+    }
+    .id-card-container {
+      position: sticky;
+      top: 20px;
+    }
+    .id-card-container .id-card-display {
+      position: static;
+      transform: none;
+      opacity: 1;
+      transition: none;
+    }
+    .id-card-container .id-card {
+      width: 100%;
+      transition: box-shadow 0.3s ease;
+    }
+    .id-card-container .id-card.highlight {
+      box-shadow: 0 0 20px 5px var(--accent-color-light);
+    }
+    .id-card-placeholder {
+      display: grid;
+      place-items: center;
+      height: 320px; /* Match card height */
+      border: 2px dashed var(--border-color);
+      border-radius: 16px;
+      color: var(--muted-color);
+      text-align: center;
+      font-size: 14px;
+    }
+    .id-card-placeholder.hidden { display: none; }
+  </style>
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-title">RFID Attendance Dashboard</div>
     <div class="topbar-actions">
+      <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </div>
       <div class="admin-name"><?php echo isset($_SESSION['admin_name']) ? htmlspecialchars($_SESSION['admin_name']) : ''; ?></div>
       <button id="logoutBtn" class="btn secondary" style="margin-left:12px;">Logout</button>
     </div>
@@ -27,13 +288,13 @@ if (!isset($_SESSION['admin_uid'])) {
         <span class="brand-dot">RF</span>
         <span class="brand-text">RFID Console</span>
       </div>
-      <button class="tab-btn active" data-tab="dashboardTab" title="Dashboard">
+      <button class="tab-btn active" data-tab="dashboardTab" title="Live Preview">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6v-9h-6v9zm0-16v5h6V4h-6z" />
           </svg>
         </span>
-        <span class="tab-label">Dashboard</span>
+        <span class="tab-label">Live Preview</span>
       </button>
       <button class="tab-btn" data-tab="registerTab" title="Register">
         <span class="tab-icon" aria-hidden="true">
@@ -43,7 +304,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Register</span>
       </button>
-      <button class="tab-btn" data-href="personal_activity.php" title="Personal Activity">
+      <button class="tab-btn" data-tab="personalActivityTab" title="Personal Activity">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M12 2a5 5 0 0 1 5 5v1h1.5A2.5 2.5 0 0 1 21 10.5v8A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5v-8A2.5 2.5 0 0 1 5.5 8H7V7a5 5 0 0 1 5-5zm3 6V7a3 3 0 0 0-6 0v1h6zm-3 5a2 2 0 0 0-1 3.732V17a1 1 0 0 0 2 0v-.268A2 2 0 0 0 12 13z" />
@@ -51,15 +312,15 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Personal Activity</span>
       </button>
-      <button class="tab-btn" data-tab="dashboardTab" title="Scan Log">
+      <button class="tab-btn" data-tab="dailyLogsTab" title="Daily Logs">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M4 5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5zm10-1.5V9h5.5L14 3.5zM8 13h8a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2zM8 17h6a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2z" />
           </svg>
         </span>
-        <span class="tab-label">Scan Log</span>
+        <span class="tab-label">Daily Logs</span>
       </button>
-      <button class="tab-btn" data-tab="reportsTab" title="Reports">
+      <button class="tab-btn" data-tab="reportsTab" title="Analytics">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M4 19a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1zm2-3V9a1 1 0 1 1 2 0v7a1 1 0 1 1-2 0zm5 0V6a1 1 0 1 1 2 0v10a1 1 0 1 1-2 0zm5 0V11a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0z" />
@@ -67,18 +328,66 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Reports</span>
       </button>
+      <button class="tab-btn" data-tab="settingsTab" title="Settings">
+        <span class="tab-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" focusable="false">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+          </svg>
+        </span>
+        <span class="tab-label">Settings</span>
+      </button>
     </nav>
     <main class="main">
+      <!-- Visual ID Card Display -->
       <div id="dashboardTab" class="tab-content active">
-        <section class="section">
-          <h1>Dashboard Overview</h1>
-          <p class="sub">Quick stats for today, week, and month.</p>
-          <div class="grid">
-            <div class="card">
-              <h3>Today Scans</h3>
-              <div class="value" id="todayTotal">-</div>
-              <div class="meta" id="todayMeta">In: - | Out: -</div>
+        <section class="sectionlivedashboard">
+          <div class="preview-layout">
+            <div class="stats-column">
+              <h1>Live Dashboard</h1>
+              <p class="sub">Real-time campus entrance statistics.</p>
+              <div class="stats-dropdown-container">
+                <button id="stats-toggle" class="btn secondary">Live Stats &nbsp;▾</button>
+                <div id="stats-dropdown" class="stats-dropdown hidden">
+                  <div class="card">
+                    <div class="card">
+                      <h3>Today Scans</h3>
+                      <div class="value" id="todayTotal">-</div>
+                      <div class="meta" id="todayMeta">In: - | Out: -</div>
+                    </div>
+                    <div class="card">
+                      <h3>Inside Now</h3>
+                      <div class="value" id="insideTotal">-</div>
+                      <div class="meta" id="insideMeta">Students: - | Faculty: -</div>
+                    </div>
+                    <div class="card alert-card">
+                      <h3>Suspicious Alerts</h3>
+                      <div class="value" id="suspiciousCount">-</div>
+                      <div class="meta" id="suspiciousMeta">Last 24 hours</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+            <div class="id-card-container">
+              <div id="idCardDisplay" class="id-card-display hidden">
+                <div class="id-card">
+                  <div class="id-card-header"></div>
+                  <div class="id-card-body">
+                    <div class="id-card-photo"><img id="idCardPhoto" src="" alt="User Photo"></div>
+                    <div id="idCardName" class="id-card-name"></div>
+                    <div id="idCardRole" class="id-card-info"></div>
+                    <div id="idCardId" class="id-card-info"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="idCardPlaceholder" class="id-card-placeholder">Waiting for next scan...</div>
+            </div>
+          </div>
+        </section>
+        <section class="section">
+          <h1>Overview</h1>
+          <p class="sub">Quick stats for the week and month.</p>
+          <div class="grid">
             <div class="card">
               <h3>Week Scans</h3>
               <div class="value" id="weekTotal">-</div>
@@ -94,21 +403,11 @@ if (!isset($_SESSION['admin_uid'])) {
               <div class="value" id="activeStudents">-</div>
               <div class="meta">Last 7 days</div>
             </div>
-            <div class="card">
-              <h3>Inside Now</h3>
-              <div class="value" id="insideTotal">-</div>
-              <div class="meta" id="insideMeta">Students: - | Faculty: -</div>
-            </div>
-            <div class="card alert-card">
-              <h3>Suspicious Alerts</h3>
-              <div class="value" id="suspiciousCount">-</div>
-              <div class="meta" id="suspiciousMeta">Last 24 hours</div>
-            </div>
           </div>
         </section>
 
         <section class="section">
-          <h1>Traffic Charts</h1>
+          <h1>Historical Charts</h1>
           <p class="sub">Full history of student scans. Hover the line to see student, faculty, and staff counts.</p>
           <div class="chart-grid">
             <div class="chart-card wide">
@@ -151,13 +450,56 @@ if (!isset($_SESSION['admin_uid'])) {
           <div class="status" id="chartStatus">Loading charts...</div>
         </section>
 
+      </div>
+
+      <div id="reportsTab" class="tab-content">
         <section class="section">
-          <h1>Personal Activity</h1>
-          <p class="sub">Moved to a dedicated page so the dashboard stays focused on overview and scan log.</p>
-          <div class="card">
-            <h3>Open the activity page</h3>
-            <p class="sub" style="margin-top: 0;">Browse scans per person with admin filters and per-user tags.</p>
-            <button class="btn" type="button" data-href="personal_activity.php">Go to Personal Activity</button>
+          <h1>Reports</h1>
+          <p class="sub">Operational alerts, peak scan windows, and admin activity.</p>
+          <div style="margin-bottom:16px;">
+            <label for="reportAdminFilter" style="font-size:13px; color:var(--muted); margin-right:6px;">Admin:</label>
+            <select id="reportAdminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
+              <option value="">All Admins</option>
+            </select>
+          </div>
+          <div class="grid" id="adminStatsGrid">
+            <div class="card">
+              <h3>Loading Admin Stats...</h3>
+              <div class="value">-</div>
+            </div>
+          </div>
+          <div class="split">
+            <div class="card">
+              <h3>Peak Hours Today</h3>
+              <ul class="list" id="peakTimes"></ul>
+            </div>
+            <div class="card alert-card">
+              <h3>Alert Summary</h3>
+              <ul class="list" id="alertList"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h1>Suspicious Scans</h1>
+          <p class="sub">Consecutive IN/IN or OUT/OUT activity for review.</p>
+          <div class="panel-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Dir</th>
+                  <th>Admin</th>
+                  <th>Prev Time</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="suspiciousRows">
+                <tr><td colspan="7">Loading suspicious activity...</td></tr>
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
@@ -320,36 +662,168 @@ if (!isset($_SESSION['admin_uid'])) {
         
       </div>
 
-      <div id="reportsTab" class="tab-content">
+      <div id="personalActivityTab" class="tab-content">
         <section class="section">
-          <h1>Reports</h1>
-          <p class="sub">Suspicious activity (consecutive IN/IN or OUT/OUT)</p>
-          <div class="panel-table" style="margin-top: 12px;">
-            <table class="table-compact">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>User</th>
-                  <th>Dir</th>
-                  <th>Prev ID</th>
-                  <th>Prev Time</th>
-                  <th>Time</th>
-                  <th>Admin</th>
-                </tr>
-              </thead>
-              <tbody id="suspiciousRows"></tbody>
-            </table>
+          <h1>Personal Activity</h1>
+          <p class="sub">Browse scans by person, scoped by admin.</p>
+          <div class="split">
+            <div class="card">
+              <h3>Person Logs</h3>
+              <div class="field"><label for="personalAdminFilter">Admin filter</label><select id="personalAdminFilter"><option value="">All Admins</option></select></div>
+              <div class="field"><label for="personalUserSelect">Select person</label><select id="personalUserSelect"></select></div>
+              <div class="tag-row" id="personalUserAdminTags"></div>
+              <div class="panel-table"><table class="table-compact"><thead><tr><th>ID</th><th>Dir</th><th>Admin</th><th>Time</th></tr></thead><tbody id="personalUserLogs"></tbody></table></div>
+            </div>
+            <div class="stack">
+              <div class="card"><h3>Quick Note</h3><p class="sub">This isolates personal activity on the dashboard.</p></div>
+              <div class="card"><h3>Back to Dashboard</h3><p class="sub">Return to the main overview.</p><button class="btn" type="button" data-tab="dashboardTab">Open Dashboard</button></div>
+            </div>
           </div>
+        </section>
+      </div>
+
+      <div id="dailyLogsTab" class="tab-content">
+        <section class="section">
+          <h1>Daily Logs</h1>
+          <p class="sub">Generate daily scan outputs from the API.</p>
+          <div style="display:flex; gap:8px; align-items:center; margin:6px 0 10px 0; flex-wrap:wrap;">
+            <div class="daily-report-row">
+              <label for="dailyReportDate">Daily log</label>
+              <input id="dailyReportDate" class="daily-report-date" type="date" />
+            </div>
+            <label for="dailyAdminFilter" style="font-size:13px; color:var(--muted); margin-left:6px;">Admin:</label>
+            <select id="dailyAdminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
+              <option value="">All Admins</option>
+            </select>
+            <label style="font-size:13px; color:var(--muted); margin-left:8px; display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" id="dailySuspiciousOnly" />
+              <span>Only suspicious</span>
+            </label>
+          </div>
+          <div class="daily-report-actions" style="margin-bottom:10px;">
+            <button type="button" class="btn secondary compact" id="dailyPrintBtn">Print Daily</button>
+            <button type="button" class="btn secondary compact" id="dailyCsvBtn">Download CSV</button>
+            <button type="button" class="btn secondary compact" id="dailyXlsBtn">Download Excel</button>
+          </div>
+          <div class="panel-table" style="height:70vh; min-height:520px;">
+            <iframe id="dailyPreviewFrame" title="Daily logs preview" style="width:100%; height:100%; border:0; background:#fff;"></iframe>
+          </div>
+        </section>
+      </div>
+
+      <div id="settingsTab" class="tab-content">
+        <section class="section">
+          <h1>Settings</h1>
+          <p class="sub">Customize the dashboard behavior and appearance.</p>
+          <form id="settingsForm" class="settings-list">
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Theme</div>
+                <div class="settings-item-desc">Switch between light and dark mode</div>
+              </div>
+              <div class="settings-item-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settingTheme" name="theme" value="dark" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Font Size</div>
+                <div class="settings-item-desc">Adjust the dashboard text size</div>
+              </div>
+              <div class="settings-item-control">
+                <select id="settingFontSize" name="font_size" class="settings-select">
+                  <option value="small">Small</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="large">Large</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Day Reset Hour</div>
+                <div class="settings-item-desc">When daily scan counts should reset</div>
+              </div>
+              <div class="settings-item-control">
+                <select id="settingDailyResetHour" name="daily_reset_hour" class="settings-select">
+                  <option value="0">12:00 AM</option>
+                  <option value="1">1:00 AM</option>
+                  <option value="2">2:00 AM</option>
+                  <option value="3">3:00 AM</option>
+                  <option value="4">4:00 AM</option>
+                  <option value="5">5:00 AM</option>
+                  <option value="6">6:00 AM</option>
+                  <option value="7">7:00 AM</option>
+                  <option value="8">8:00 AM</option>
+                  <option value="9">9:00 AM</option>
+                  <option value="10">10:00 AM</option>
+                  <option value="11">11:00 AM</option>
+                  <option value="12">12:00 PM</option>
+                  <option value="13">1:00 PM</option>
+                  <option value="14">2:00 PM</option>
+                  <option value="15">3:00 PM</option>
+                  <option value="16">4:00 PM</option>
+                  <option value="17">5:00 PM</option>
+                  <option value="18">6:00 PM</option>
+                  <option value="19">7:00 PM</option>
+                  <option value="20">8:00 PM</option>
+                  <option value="21">9:00 PM</option>
+                  <option value="22">10:00 PM</option>
+                  <option value="23">11:00 PM</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Today's Scan Refresh</div>
+                <div class="settings-item-desc">How often to refresh today's scan data (seconds)</div>
+              </div>
+              <div class="settings-item-control">
+                <input id="settingRefreshToday" name="refresh_today_scan" type="number" min="1" max="300" class="settings-input" />
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Inside Now Refresh</div>
+                <div class="settings-item-desc">How often to refresh inside-now data (seconds)</div>
+              </div>
+              <div class="settings-item-control">
+                <input id="settingRefreshInside" name="refresh_inside_now" type="number" min="1" max="300" class="settings-input" />
+              </div>
+            </div>
+            <div class="settings-item">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Suspicious Alerts Refresh</div>
+                <div class="settings-item-desc">How often to refresh suspicious alerts (seconds)</div>
+              </div>
+              <div class="settings-item-control">
+                <input id="settingRefreshSuspicious" name="refresh_suspicious_alerts" type="number" min="1" max="300" class="settings-input" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" id="saveSettingsBtn">Save Settings</button>
+              <span class="status-pill" id="settingsStatus"></span>
+            </div>
+          </form>
         </section>
       </div>
     </main>
 
-    <aside class="panel-fixed">
-      <h2 class="panel-title">RFID Scan Log</h2>
-      <p class="panel-note">Permanent view for in/out scans</p>
+    <aside class="panel-fixed" id="scanLogPanel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">RFID Scan Log</h2>
+          <p class="panel-note">Permanent view for in/out scans</p>
+        </div>
+        <div class="panel-header-actions">
+          <button class="panel-toggle-btn" id="panelToggleBtn" title="Minimize panel">− Minimize</button>
+        </div>
+      </div>
       <div style="display:flex; gap:8px; align-items:center; margin:6px 0 10px 0;">
         <label for="adminFilter" style="font-size:13px; color:var(--muted); margin-right:6px;">Admin:</label>
-        <select id="adminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--stroke); background:#fff;">
+        <select id="adminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
           <option value="">All Admins</option>
         </select>
         <label style="font-size:13px; color:var(--muted); margin-left:8px; display:flex; align-items:center; gap:6px;">
@@ -374,14 +848,17 @@ if (!isset($_SESSION['admin_uid'])) {
         </table>
       </div>
     </aside>
+  <button class="floating-log-btn" id="floatingLogBtn" title="Open scan log">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <span class="badge" id="scanBadge" style="display:none">0</span>
+  </button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="vendor/chart.umd.min.js"></script>
   <script>
     const rowsEl = document.getElementById('rows');
     const statusEl = document.getElementById('status');
     const adminFilterEl = document.getElementById('adminFilter');
-    const adminUserFilterEl = document.getElementById('adminUserFilter');
     const suspiciousOnlyEl = document.getElementById('suspiciousOnly');
     const todayTotalEl = document.getElementById('todayTotal');
     const todayMetaEl = document.getElementById('todayMeta');
@@ -401,11 +878,14 @@ if (!isset($_SESSION['admin_uid'])) {
     const historyModeEl = document.getElementById('historyMode');
     const peakTimesEl = document.getElementById('peakTimes');
     const alertListEl = document.getElementById('alertList');
+    const reportAdminFilterEl = document.getElementById('reportAdminFilter');
+    const adminStatsGridEl = document.getElementById('adminStatsGrid');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
-    const userSelectEl = document.getElementById('userSelect');
-    const userLogsEl = document.getElementById('userLogs');
-    const userAdminTagsEl = document.getElementById('userAdminTags');
+const personalAdminFilterEl = document.getElementById('personalAdminFilter');
+    const personalUserSelectEl = document.getElementById('personalUserSelect');
+    const personalUserLogsEl = document.getElementById('personalUserLogs');
+    const personalUserAdminTagsEl = document.getElementById('personalUserAdminTags');
     const registerFormEl = document.getElementById('registerForm');
     const registerStatusEl = document.getElementById('registerStatus');
     const scanPromptEl = document.getElementById('scanPrompt');
@@ -430,8 +910,34 @@ if (!isset($_SESSION['admin_uid'])) {
     const viewDepartmentEl = document.getElementById('viewDepartment');
     const viewPurposeEl = document.getElementById('viewPurpose');
     const viewValidUntilEl = document.getElementById('viewValidUntil');
+    const idCardDisplayEl = document.getElementById('idCardDisplay');
+    const idCardPhotoEl = document.getElementById('idCardPhoto');
+    const idCardNameEl = document.getElementById('idCardName');
+    const idCardRoleEl = document.getElementById('idCardRole');
+    const idCardIdEl = document.getElementById('idCardId');
+    const idCardPlaceholderEl = document.getElementById('idCardPlaceholder');
+    const statsToggleEl = document.getElementById('stats-toggle');
+    const statsDropdownEl = document.getElementById('stats-dropdown');
+    const settingsFormEl = document.getElementById('settingsForm');
+    const settingsStatusEl = document.getElementById('settingsStatus');
+    const settingThemeEl = document.getElementById('settingTheme');
+    const settingFontSizeEl = document.getElementById('settingFontSize');
+    const settingRefreshTodayEl = document.getElementById('settingRefreshToday');
+    const settingRefreshInsideEl = document.getElementById('settingRefreshInside');
+    const settingRefreshSuspiciousEl = document.getElementById('settingRefreshSuspicious');
+    const settingDailyResetHourEl = document.getElementById('settingDailyResetHour');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const dailyReportDateEl = document.getElementById('dailyReportDate');
+    const dailyAdminFilterEl = document.getElementById('dailyAdminFilter');
+    const dailySuspiciousOnlyEl = document.getElementById('dailySuspiciousOnly');
+    const dailyPreviewFrameEl = document.getElementById('dailyPreviewFrame');
+    const dailyPrintBtn = document.getElementById('dailyPrintBtn');
+    const dailyCsvBtn = document.getElementById('dailyCsvBtn');
+    const dailyXlsBtn = document.getElementById('dailyXlsBtn');
+    let idCardTimeout = null;
     const registerSignalStartMs = Date.now();
     let lastScanId = 0;
+    const themeSwitcher = document.getElementById('themeSwitcher');
     let currentRegisteredUser = null;
     let adminTagsByUid = {};
     let historyChart = null;
@@ -473,6 +979,75 @@ if (!isset($_SESSION['admin_uid'])) {
         return `${hour12}:00 ${suffix}`;
       };
       return `${format(start)} - ${format(end)}`;
+    }
+
+    function focusScanLogPanel() {
+      const panel = document.getElementById('scanLogPanel');
+      if (!panel) {
+        return;
+      }
+      if (panel.classList.contains('panel-minimized')) {
+        setPanelMinimized(false);
+      }
+      panel.classList.remove('panel-focus');
+      // Restart highlight animation for repeated clicks.
+      void panel.offsetWidth;
+      panel.classList.add('panel-focus');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function formatLocalDateInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getSelectedDailyReportDate() {
+      if (dailyReportDateEl && dailyReportDateEl.value) {
+        return dailyReportDateEl.value;
+      }
+      return formatLocalDateInput(new Date());
+    }
+
+    function openDailyReport(format) {
+      const url = new URL('../api/scans/daily_report.php', window.location.href);
+      url.searchParams.set('date', getSelectedDailyReportDate());
+      url.searchParams.set('format', format);
+      const adminUid = dailyAdminFilterEl ? dailyAdminFilterEl.value : '';
+      if (adminUid) {
+        url.searchParams.set('admin_uid', adminUid);
+      }
+      if (dailySuspiciousOnlyEl && dailySuspiciousOnlyEl.checked) {
+        url.searchParams.set('suspicious', '1');
+      }
+
+      if (format === 'print') {
+        const win = window.open(url.toString(), '_blank', 'noopener');
+        if (!win) {
+          window.location.href = url.toString();
+        }
+        return;
+      }
+
+      window.location.href = url.toString();
+    }
+
+    function refreshDailyPreview() {
+      if (!dailyPreviewFrameEl) {
+        return;
+      }
+      const url = new URL('../api/scans/daily_report.php', window.location.href);
+      url.searchParams.set('date', getSelectedDailyReportDate());
+      url.searchParams.set('format', 'print');
+      const adminUid = dailyAdminFilterEl ? dailyAdminFilterEl.value : '';
+      if (adminUid) {
+        url.searchParams.set('admin_uid', adminUid);
+      }
+      if (dailySuspiciousOnlyEl && dailySuspiciousOnlyEl.checked) {
+        url.searchParams.set('suspicious', '1');
+      }
+      dailyPreviewFrameEl.src = url.toString();
     }
 
     function setStats(stats) {
@@ -918,38 +1493,40 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     function getAdminFilterValue() {
-      if (adminUserFilterEl && adminUserFilterEl.value) {
-        return adminUserFilterEl.value;
-      }
       return adminFilterEl ? adminFilterEl.value : '';
+    }
+
+    function getPersonalAdminFilterValue() {
+      return personalAdminFilterEl ? personalAdminFilterEl.value : '';
+    }
+
+    function getReportAdminFilterValue() {
+      return reportAdminFilterEl ? reportAdminFilterEl.value : '';
     }
 
     function syncAdminFilters(value) {
       if (adminFilterEl && adminFilterEl.value !== value) {
         adminFilterEl.value = value;
       }
-      if (adminUserFilterEl && adminUserFilterEl.value !== value) {
-        adminUserFilterEl.value = value;
-      }
     }
 
     function renderUserAdminTags(tags) {
-      if (!userAdminTagsEl) {
+      if (!personalUserAdminTagsEl) {
         return;
       }
-      userAdminTagsEl.innerHTML = '';
+      personalUserAdminTagsEl.innerHTML = '';
       if (!tags || tags.length === 0) {
         const emptyTag = document.createElement('span');
         emptyTag.className = 'tag muted';
         emptyTag.textContent = 'No admin tags';
-        userAdminTagsEl.appendChild(emptyTag);
+        personalUserAdminTagsEl.appendChild(emptyTag);
         return;
       }
       tags.forEach(tag => {
         const span = document.createElement('span');
         span.className = 'tag';
         span.textContent = tag;
-        userAdminTagsEl.appendChild(span);
+        personalUserAdminTagsEl.appendChild(span);
       });
     }
 
@@ -1059,11 +1636,11 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     async function loadUsers() {
-      if (!userSelectEl || !userLogsEl) {
+      if (!personalUserSelectEl || !personalUserLogsEl) {
         return;
       }
       try {
-        const adminUid = getAdminFilterValue();
+        const adminUid = getPersonalAdminFilterValue();
         const usersUrl = new URL('../api/users/get_users.php', window.location.href);
         if (adminUid) usersUrl.searchParams.set('admin_uid', adminUid);
 
@@ -1101,7 +1678,7 @@ if (!isset($_SESSION['admin_uid'])) {
           });
         }
 
-        userSelectEl.innerHTML = '';
+        personalUserSelectEl.innerHTML = '';
         data.data.forEach(user => {
           let idLabel = '';
           if (user.role === 'student' && user.student_id) {
@@ -1123,37 +1700,58 @@ if (!isset($_SESSION['admin_uid'])) {
           const option = document.createElement('option');
           option.value = user.uid;
           option.textContent = label;
-          userSelectEl.appendChild(option);
+          personalUserSelectEl.appendChild(option);
         });
         if (data.data.length > 0) {
-          loadUserLogs(userSelectEl.value);
+          loadUserLogs(personalUserSelectEl.value);
         } else {
-          userLogsEl.innerHTML = '<tr><td colspan="3">No registered people</td></tr>';
+          personalUserLogsEl.innerHTML = '<tr><td colspan="3">No registered people</td></tr>';
           renderUserAdminTags([]);
         }
       } catch (err) {
-        userLogsEl.innerHTML = '<tr><td colspan="3">Unable to load users</td></tr>';
+        personalUserLogsEl.innerHTML = '<tr><td colspan="3">Unable to load users</td></tr>';
         renderUserAdminTags([]);
       }
     }
 
     async function loadUserLogs(uid) {
-      if (!userLogsEl) {
+      if (!personalUserLogsEl) {
         return;
       }
       if (!uid) {
         return;
       }
       try {
-        const res = await fetch(`../api/users/get_user_logs.php?uid=${encodeURIComponent(uid)}&limit=200`);
-        const data = await res.json();
+        const adminUid = getPersonalAdminFilterValue();
+        const url = new URL('../api/users/get_personal_activity.php', window.location.href);
+        url.searchParams.set('uid', uid);
+        url.searchParams.set('limit', '200');
+        if (adminUid) {
+          url.searchParams.set('admin_uid', adminUid);
+        }
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          personalUserLogsEl.innerHTML = '<tr><td colspan="4">Server error</td></tr>';
+          console.error('get_personal_activity.php returned HTTP', res.status, await res.text());
+          renderUserAdminTags([]);
+          return;
+        }
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          personalUserLogsEl.innerHTML = '<tr><td colspan="4">Invalid server response</td></tr>';
+          console.error('Failed to parse JSON from get_personal_activity.php:', e, await res.text());
+          renderUserAdminTags([]);
+          return;
+        }
         if (!data.ok) {
-          userLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
+          personalUserLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
           renderUserAdminTags([]);
           return;
         }
         if (data.data.length === 0) {
-          userLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
+          personalUserLogsEl.innerHTML = '<tr><td colspan="4">No logs found</td></tr>';
           renderUserAdminTags([]);
           return;
         }
@@ -1171,11 +1769,67 @@ if (!isset($_SESSION['admin_uid'])) {
             <td>${row.created_at}</td>
           </tr>`;
         });
-        userLogsEl.innerHTML = html;
+        personalUserLogsEl.innerHTML = html;
         renderUserAdminTags(Array.from(adminSet));
       } catch (err) {
-        userLogsEl.innerHTML = '<tr><td colspan="4">Unable to load logs</td></tr>';
+        personalUserLogsEl.innerHTML = '<tr><td colspan="4">Unable to load logs</td></tr>';
         renderUserAdminTags([]);
+      }
+    }
+
+    function hideIdCard() {
+      if (idCardDisplayEl) {
+        idCardDisplayEl.classList.add('hidden');
+        idCardDisplayEl.querySelector('.id-card').classList.remove('highlight');
+      }
+      if (idCardPlaceholderEl) {
+        idCardPlaceholderEl.classList.remove('hidden');
+      }
+    }
+
+    async function showIdCardForUser(uid) {
+      if (!idCardDisplayEl || !idCardPlaceholderEl) return;
+
+      try {
+        const res = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
+        const data = await res.json();
+
+        if (data.ok && data.data) {
+          const user = data.data;
+          
+          // TODO: Replace with actual picture path from user data
+          // You would need to add a 'picture' column to your user tables
+          // and return it from the get_user.php API.
+          const pictureUrl = user.picture || '/School_Entrance_Monitoring_Systems/image/default-avatar.png';
+          idCardPhotoEl.src = pictureUrl;
+          
+          idCardNameEl.textContent = user.name || 'Unknown';
+          idCardNameEl.classList.add('yellogreen'); // Add the requested color class
+
+          idCardRoleEl.textContent = (user.role || '').charAt(0).toUpperCase() + (user.role || '').slice(1);
+
+          let idString = '';
+          if (user.role === 'student') idString = `ID: ${user.student_id || 'N/A'}`;
+          else if (user.role === 'faculty') idString = `ID: ${user.faculty_id || 'N/A'}`;
+          else if (user.role === 'staff') idString = `ID: ${user.staff_id || 'N/A'}`;
+          idCardIdEl.textContent = idString;
+
+          idCardPlaceholderEl.classList.add('hidden');
+          idCardDisplayEl.classList.remove('hidden');
+          const cardEl = idCardDisplayEl.querySelector('.id-card');
+          cardEl.classList.add('highlight');
+
+          // Clear any existing timeout and set a new one to hide the card
+          if (idCardTimeout) clearTimeout(idCardTimeout);
+          // Hide after 12 seconds, remove highlight sooner
+          setTimeout(() => cardEl.classList.remove('highlight'), 4000);
+          idCardTimeout = setTimeout(hideIdCard, 12000);
+        } else {
+          hideIdCard();
+        }
+      } catch (err) {
+        console.error("Failed to fetch user for ID card", err);
+        hideIdCard();
       }
     }
 
@@ -1246,12 +1900,19 @@ if (!isset($_SESSION['admin_uid'])) {
 
         rowsEl.innerHTML = newHtml;
         statusEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+        if (scanBadge) {
+          scanBadge.textContent = data.data.length || '';
+          scanBadge.style.display = data.data.length ? 'grid' : 'none';
+        }
 
         // highlight the newest scan row with a glow animation
         if (newestScan) {
           // show unregistered modal if needed
           if (newestScan.name === 'New User' || !newestScan.name) {
+            hideIdCard();
             setTimeout(() => showUnregistered(newestScan.uid, newestScan.created_at), 100);
+          } else {
+            showIdCardForUser(newestScan.uid);
           }
 
           // animate the corresponding table row after DOM update
@@ -1277,7 +1938,7 @@ if (!isset($_SESSION['admin_uid'])) {
       }
     }
     async function loadAdmins() {
-      if (!adminFilterEl && !adminUserFilterEl) return;
+      if (!adminFilterEl) return;
       try {
         const res = await fetch('../api/admin/get_admins.php');
         if (!res.ok) {
@@ -1286,13 +1947,12 @@ if (!isset($_SESSION['admin_uid'])) {
         const data = await res.json();
         if (!data.ok) return;
         const currentValue = adminFilterEl ? adminFilterEl.value : '';
-        const currentUserValue = adminUserFilterEl ? adminUserFilterEl.value : '';
 
         if (adminFilterEl) {
           adminFilterEl.innerHTML = '<option value="">All Admins</option>';
         }
-        if (adminUserFilterEl) {
-          adminUserFilterEl.innerHTML = '<option value="">All Admins</option>';
+        if (dailyAdminFilterEl) {
+          dailyAdminFilterEl.innerHTML = '<option value="">All Admins</option>';
         }
 
         data.data.forEach(a => {
@@ -1302,19 +1962,21 @@ if (!isset($_SESSION['admin_uid'])) {
             opt.textContent = a.name;
             adminFilterEl.appendChild(opt);
           }
-          if (adminUserFilterEl) {
-            const optUser = document.createElement('option');
-            optUser.value = a.uid;
-            optUser.textContent = a.name;
-            adminUserFilterEl.appendChild(optUser);
+          if (dailyAdminFilterEl) {
+            const optDaily = document.createElement('option');
+            optDaily.value = a.uid;
+            optDaily.textContent = a.name;
+            dailyAdminFilterEl.appendChild(optDaily);
           }
         });
 
         if (currentValue) {
           syncAdminFilters(currentValue);
-        } else if (currentUserValue) {
-          syncAdminFilters(currentUserValue);
         }
+        if (dailyAdminFilterEl && currentValue && !dailyAdminFilterEl.value) {
+          dailyAdminFilterEl.value = currentValue;
+        }
+        refreshDailyPreview();
       } catch (err) {
         // ignore
       }
@@ -1322,7 +1984,7 @@ if (!isset($_SESSION['admin_uid'])) {
 
     async function loadSuspicious() {
       try {
-        const adminUid = getAdminFilterValue();
+        const adminUid = getReportAdminFilterValue();
         const url = new URL('../api/scans/get_suspicious.php', window.location.href);
         url.searchParams.set('limit', '200');
         if (adminUid) url.searchParams.set('admin_uid', adminUid);
@@ -1348,14 +2010,15 @@ if (!isset($_SESSION['admin_uid'])) {
         data.data.forEach(row => {
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
           const name = row.name ? row.name : 'Unknown';
+          const role = row.role ? row.role.charAt(0).toUpperCase() + row.role.slice(1) : '-';
           html += `<tr>
             <td>${row.id}</td>
             <td><b>${name}</b></td>
+            <td><span class="role-badge role-${role.toLowerCase()}">${role}</span></td>
             <td>${row.direction}</td>
-            <td>${row.prev_id}</td>
+            <td><b>${adminDisplay}</b></td>
             <td>${row.prev_created_at}</td>
             <td>${row.created_at}</td>
-            <td>${adminDisplay}</td>
           </tr>`;
         });
         el.innerHTML = html;
@@ -1382,10 +2045,35 @@ if (!isset($_SESSION['admin_uid'])) {
       }
     }
 
-    tabButtons.forEach(btn => {
+    async function pollAdminSignal() {
+      try {
+        const res = await fetch('../api/admin/get_admin_scan_signal.php?consume=1');
+        const data = await res.json();
+        if (!data.ok || !data.data || !data.data.uid) {
+          return;
+        }
+        const signal = data.data;
+        const signalMs = signal.ts ? signal.ts * 1000 : parseSignalTime(signal.created_at || '');
+        if (Number.isFinite(signalMs) && signalMs < Date.now() - 10000) {
+          return;
+        }
+        statusEl.textContent = `Admin scan detected: ${signal.name || signal.uid}`;
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
+        loadScans();
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    const navControls = document.querySelectorAll('[data-tab], [data-action], [data-href]');
+    navControls.forEach(btn => {
       btn.addEventListener('click', () => {
         if (btn.dataset.href) {
           window.location.href = btn.dataset.href;
+          return;
+        }
+        if (btn.dataset.action === 'scanLog') {
+          focusScanLogPanel();
           return;
         }
         if (btn.dataset.tab) {
@@ -1394,9 +2082,15 @@ if (!isset($_SESSION['admin_uid'])) {
       });
     });
 
-    if (userSelectEl) {
-      userSelectEl.addEventListener('change', () => {
-        loadUserLogs(userSelectEl.value);
+    if (statsToggleEl && statsDropdownEl) {
+      statsToggleEl.addEventListener('click', () => {
+        statsDropdownEl.classList.toggle('hidden');
+      });
+    }
+
+    if (personalUserSelectEl) {
+      personalUserSelectEl.addEventListener('change', () => {
+        loadUserLogs(personalUserSelectEl.value);
       });
     }
 
@@ -1442,41 +2136,193 @@ if (!isset($_SESSION['admin_uid'])) {
       showEditFormFromUser(currentRegisteredUser);
     });
 
-    // Initial load
-    if (userSelectEl && userLogsEl) {
+    async function loadPersonalAdmins() {
+      if (!personalAdminFilterEl) {
+        return;
+      }
+      try {
+        const res = await fetch('../api/admin/get_admins.php');
+        const data = await res.json();
+        if (!data.ok) {
+          return;
+        }
+        const currentValue = personalAdminFilterEl.value;
+        personalAdminFilterEl.innerHTML = '<option value="">All Admins</option>';
+        data.data.forEach(admin => {
+          const option = document.createElement('option');
+          option.value = admin.uid;
+          option.textContent = admin.name;
+          personalAdminFilterEl.appendChild(option);
+        });
+        if (currentValue) {
+          personalAdminFilterEl.value = currentValue;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    async function loadReportAdmins() {
+      if (!reportAdminFilterEl) {
+        return;
+      }
+      try {
+        const res = await fetch('../api/admin/get_admins.php');
+        const data = await res.json();
+        if (!data.ok) {
+          return;
+        }
+        const currentValue = reportAdminFilterEl.value;
+        reportAdminFilterEl.innerHTML = '<option value="">All Admins</option>';
+        data.data.forEach(admin => {
+          const option = document.createElement('option');
+          option.value = admin.uid;
+          option.textContent = admin.name;
+          reportAdminFilterEl.appendChild(option);
+        });
+        if (currentValue) {
+          reportAdminFilterEl.value = currentValue;
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    async function loadAdminStats() {
+      if (!adminStatsGridEl) {
+        return;
+      }
+      try {
+        const adminUid = getReportAdminFilterValue();
+        const url = new URL('../api/admin/get_admin_stats.php', window.location.href);
+        if (adminUid) {
+          url.searchParams.set('admin_uid', adminUid);
+        }
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          adminStatsGridEl.innerHTML = '<div class="card"><h3>Stats Unavailable</h3></div>';
+          return;
+        }
+        const data = await res.json();
+        if (!data.ok) {
+          adminStatsGridEl.innerHTML = '<div class="card"><h3>Stats Unavailable</h3></div>';
+          return;
+        }
+        if (!data.data || data.data.length === 0) {
+          adminStatsGridEl.innerHTML = '<div class="card"><h3>No Admin Activity</h3><p class="sub">No scans recorded yet.</p></div>';
+          return;
+        }
+        let html = '';
+        data.data.forEach(admin => {
+          const total = Number(admin.total_scans || 0);
+          const inCount = Number(admin.in_count || 0);
+          const outCount = Number(admin.out_count || 0);
+          const unique = Number(admin.unique_users || 0);
+          const suspicious = Number(admin.suspicious_count || 0);
+          html += `
+            <div class="card">
+              <h3>${admin.admin_name || 'Unknown'}</h3>
+              <div class="value">${total}</div>
+              <div class="meta">Total Scans</div>
+              <div class="meta" style="margin-top:4px;">In: ${inCount} | Out: ${outCount}</div>
+              <div class="meta">Unique Users: ${unique}</div>
+              <div class="meta" style="color: var(--danger-color);">Suspicious: ${suspicious}</div>
+            </div>`;
+        });
+        adminStatsGridEl.innerHTML = html;
+      } catch (err) {
+        adminStatsGridEl.innerHTML = '<div class="card"><h3>Stats Error</h3></div>';
+      }
+    }
+
+     // Initial load
+    if (personalUserSelectEl && personalUserLogsEl) {
       loadUsers();
     }
+    loadPersonalAdmins();
     loadAdmins();
+    loadReportAdmins();
+    loadAdminStats();
     loadScans();
     loadSuspicious();
     loadCharts();
     showPrompt();
     pollRegisterSignal();
+    if (dailyReportDateEl) {
+      dailyReportDateEl.value = formatLocalDateInput(new Date());
+      dailyReportDateEl.addEventListener('change', refreshDailyPreview);
+    }
+    if (dailyAdminFilterEl) {
+      dailyAdminFilterEl.addEventListener('change', refreshDailyPreview);
+    }
+    if (dailySuspiciousOnlyEl) {
+      dailySuspiciousOnlyEl.addEventListener('change', refreshDailyPreview);
+    }
     if (adminFilterEl) {
       adminFilterEl.addEventListener('change', () => {
         syncAdminFilters(adminFilterEl.value);
         loadScans();
-        loadUsers();
         loadSuspicious();
         loadCharts();
       });
     }
-    if (adminUserFilterEl) {
-      adminUserFilterEl.addEventListener('change', () => {
-        syncAdminFilters(adminUserFilterEl.value);
-        loadScans();
+    if (personalAdminFilterEl) {
+      personalAdminFilterEl.addEventListener('change', () => {
         loadUsers();
-        loadSuspicious();
-        loadCharts();
+        loadUserLogs(personalUserSelectEl ? personalUserSelectEl.value : '');
       });
     }
-    // Poll every 3 seconds
-    setInterval(loadScans, 3000);
-    // Refresh suspicious reports every 10s
-    setInterval(loadSuspicious, 10000);
-    // Poll for new registration scans from the admin scanner
-    setInterval(pollRegisterSignal, 1500);
+    if (reportAdminFilterEl) {
+      reportAdminFilterEl.addEventListener('change', () => {
+        loadAdminStats();
+        loadSuspicious();
+      });
+    }
+    if (dailyPrintBtn) {
+      dailyPrintBtn.addEventListener('click', () => openDailyReport('print'));
+    }
+    if (dailyCsvBtn) {
+      dailyCsvBtn.addEventListener('click', () => openDailyReport('csv'));
+    }
+    if (dailyXlsBtn) {
+      dailyXlsBtn.addEventListener('click', () => openDailyReport('xls'));
+    }
+    refreshDailyPreview();
+    let scanPollInterval = null;
+    let suspiciousPollInterval = null;
+    let registerPollInterval = null;
+    let adminPollInterval = null;
 
+    // Panel minimize toggle
+    const panelToggleBtn = document.getElementById('panelToggleBtn');
+    const scanLogPanel = document.getElementById('scanLogPanel');
+    const floatingLogBtn = document.getElementById('floatingLogBtn');
+    const scanBadge = document.getElementById('scanBadge');
+
+    function setPanelMinimized(minimized) {
+      if (!scanLogPanel) return;
+      if (minimized) {
+        scanLogPanel.classList.add('panel-minimized');
+        document.body.classList.add('panel-minimized');
+        if (panelToggleBtn) panelToggleBtn.textContent = '+ Maximize';
+      } else {
+        scanLogPanel.classList.remove('panel-minimized');
+        document.body.classList.remove('panel-minimized');
+        if (panelToggleBtn) panelToggleBtn.textContent = '\u2212 Minimize';
+      }
+    }
+
+    function togglePanel() {
+      const isMinimized = scanLogPanel.classList.contains('panel-minimized');
+      setPanelMinimized(!isMinimized);
+    }
+
+    if (panelToggleBtn && scanLogPanel) {
+      panelToggleBtn.addEventListener('click', togglePanel);
+    }
+    if (floatingLogBtn && scanLogPanel) {
+      floatingLogBtn.addEventListener('click', () => setPanelMinimized(false));
+    }
     // Logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -1489,6 +2335,129 @@ if (!isset($_SESSION['admin_uid'])) {
         window.location.href = 'login.php';
       });
     }
+
+    // Settings logic
+    let settingsData = {
+      theme: 'light',
+      font_size: 'medium',
+      refresh_today_scan: 5,
+      refresh_inside_now: 5,
+      refresh_suspicious_alerts: 10,
+      daily_reset_hour: 0
+    };
+
+    function applySettings(settings) {
+      if (!settings) return;
+      settingsData = { ...settingsData, ...settings };
+
+      if (settingThemeEl) settingThemeEl.checked = settingsData.theme === 'dark';
+      if (settingFontSizeEl) settingFontSizeEl.value = settingsData.font_size || 'medium';
+      if (settingRefreshTodayEl) settingRefreshTodayEl.value = settingsData.refresh_today_scan || 5;
+      if (settingRefreshInsideEl) settingRefreshInsideEl.value = settingsData.refresh_inside_now || 5;
+      if (settingRefreshSuspiciousEl) settingRefreshSuspiciousEl.value = settingsData.refresh_suspicious_alerts || 10;
+      if (settingDailyResetHourEl) settingDailyResetHourEl.value = settingsData.daily_reset_hour ?? 0;
+
+      document.body.classList.remove('dark-mode');
+      document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
+      if (settingsData.theme === 'dark') {
+        document.body.classList.add('dark-mode');
+      }
+      const fsClass = 'font-size-' + (settingsData.font_size || 'medium');
+      document.body.classList.add(fsClass);
+    }
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('../api/system/get_settings.php');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && data.data) {
+          applySettings(data.data);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (saveSettingsBtn) {
+      saveSettingsBtn.addEventListener('click', async () => {
+        if (settingsStatusEl) settingsStatusEl.textContent = 'Saving...';
+        const payload = {
+          theme: settingThemeEl && settingThemeEl.checked ? 'dark' : 'light',
+          font_size: settingFontSizeEl ? settingFontSizeEl.value : 'medium',
+          refresh_today_scan: settingRefreshTodayEl ? settingRefreshTodayEl.value : 5,
+          refresh_inside_now: settingRefreshInsideEl ? settingRefreshInsideEl.value : 5,
+          refresh_suspicious_alerts: settingRefreshSuspiciousEl ? settingRefreshSuspiciousEl.value : 10,
+          daily_reset_hour: settingDailyResetHourEl ? settingDailyResetHourEl.value : 0
+        };
+        try {
+          const res = await fetch('../api/system/save_settings.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.ok) {
+            if (settingsStatusEl) settingsStatusEl.textContent = 'Saved';
+            applySettings(payload);
+            restartPollingIntervals();
+          } else {
+            if (settingsStatusEl) settingsStatusEl.textContent = data.error || 'Save failed';
+          }
+        } catch (err) {
+          if (settingsStatusEl) settingsStatusEl.textContent = 'Network error';
+        }
+      });
+    }
+
+    if (settingThemeEl) {
+      settingThemeEl.addEventListener('change', () => {
+        const theme = settingThemeEl.checked ? 'dark' : 'light';
+        document.body.classList.toggle('dark-mode', theme === 'dark');
+        localStorage.setItem('theme', theme);
+      });
+    }
+
+    function clearPollingIntervals() {
+      if (scanPollInterval) clearInterval(scanPollInterval);
+      if (suspiciousPollInterval) clearInterval(suspiciousPollInterval);
+      if (registerPollInterval) clearInterval(registerPollInterval);
+      if (adminPollInterval) clearInterval(adminPollInterval);
+      scanPollInterval = null;
+      suspiciousPollInterval = null;
+      registerPollInterval = null;
+      adminPollInterval = null;
+    }
+
+    function restartPollingIntervals() {
+      clearPollingIntervals();
+      const scanMs = Math.max(1000, (parseInt(settingsData.refresh_today_scan || 5, 10) * 1000));
+      const suspiciousMs = Math.max(1000, (parseInt(settingsData.refresh_suspicious_alerts || 10, 10) * 1000));
+      scanPollInterval = setInterval(loadScans, scanMs);
+      suspiciousPollInterval = setInterval(loadSuspicious, suspiciousMs);
+      registerPollInterval = setInterval(pollRegisterSignal, 1500);
+      adminPollInterval = setInterval(pollAdminSignal, 1500);
+    }
+
+    // Theme switcher logic
+    if (themeSwitcher) {
+      const currentTheme = localStorage.getItem('theme') || 'light';
+      if (currentTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+      }
+      themeSwitcher.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        let theme = 'light';
+        if (document.body.classList.contains('dark-mode')) {
+          theme = 'dark';
+        }
+        localStorage.setItem('theme', theme);
+        if (settingThemeEl) settingThemeEl.checked = theme === 'dark';
+      });
+    }
+
+    loadSettings();
+    restartPollingIntervals();
   </script>
 </body>
 </html>
