@@ -3,8 +3,6 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
 
 $uid = '';
-$MASTER_UID = '97:2A:59:06';
-$MASTER_UID_NORM = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $MASTER_UID));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uid = isset($_POST['uid']) ? trim($_POST['uid']) : '';
 } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -24,12 +22,6 @@ if (!preg_match('/^[0-9A-Fa-f:]+$/', $uid)) {
 }
 
 $uid_norm = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
-
-if ($uid_norm === $MASTER_UID_NORM) {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'Admin card']);
-    exit;
-}
 
 $stmt_admin = $mysqli->prepare("SELECT uid FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ? LIMIT 1");
 if (!$stmt_admin) {

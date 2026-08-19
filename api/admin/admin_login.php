@@ -37,8 +37,6 @@ function save_active_admin(string $path, string $uid, string $name): void {
 }
 
 $uid = '';
-$MASTER_UID = '97:2A:59:06';
-$MASTER_UID_NORM = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $MASTER_UID));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uid = isset($_POST['uid']) ? trim($_POST['uid']) : '';
 } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -59,17 +57,6 @@ if (!preg_match('/^[0-9A-Fa-f:]+$/', $uid)) {
 
 $uid_norm = normalize_uid_value($uid);
 $active_admin = load_active_admin($active_admin_file);
-
-if ($uid_norm === $MASTER_UID_NORM) {
-    session_start();
-    $_SESSION['admin_uid'] = $uid;
-    $_SESSION['admin_name'] = 'Master Card';
-    save_active_admin($active_admin_file, $uid, 'Master Card');
-    $block_file = __DIR__ . '/../state/auto_login_block.json';
-    if (file_exists($block_file)) @unlink($block_file);
-    echo json_encode(['ok' => true, 'name' => 'Master Card']);
-    exit;
-}
 
 if ($active_admin && !is_same_admin($uid_norm, $active_admin)) {
     http_response_code(409);

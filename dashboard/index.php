@@ -199,7 +199,7 @@ if (!isset($_SESSION['admin_uid'])) {
       font-family: "IBM Plex Sans", sans-serif;
     }
     .id-card-header {
-      background-image: url('/School_Entrance_Monitoring_Systems/image/idcapsu.png');
+      background-image: url('/School_Entrance_Monitoring_System/image/idcapsu.png');
       background-size: cover;
       background-position: center;
       height: 60px;
@@ -1800,7 +1800,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           // TODO: Replace with actual picture path from user data
           // You would need to add a 'picture' column to your user tables
           // and return it from the get_user.php API.
-          const pictureUrl = user.picture || '/School_Entrance_Monitoring_Systems/image/default-avatar.png';
+          const pictureUrl = user.picture || '/School_Entrance_Monitoring_System/image/default-avatar.png';
           idCardPhotoEl.src = pictureUrl;
           
           idCardNameEl.textContent = user.name || 'Unknown';

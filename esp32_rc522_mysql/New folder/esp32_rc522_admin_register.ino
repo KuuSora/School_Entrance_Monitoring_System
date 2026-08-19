@@ -23,7 +23,7 @@ IPAddress SUBNET(255, 255, 255, 0);
 const char* SERVER_IP = "192.168.4.2";
 
 // This is the ROOT of the api/ folder only
-const char* DEFAULT_SERVER_PATH = "/School_Entrance_Monitoring_Systems/api";
+const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
 const bool DEBUG_SERIAL = true;
 
 // Subfolders under api/
@@ -32,8 +32,6 @@ const char* SUBFOLDER_SIGNALS = "signals";
 const char* SUBFOLDER_USERS = "users";
 const char* SUBFOLDER_SCANS = "scans";
 
-// Master card UID (must match server settings)
-const char* MASTER_UID = "97:2A:59:06";
 
 // Scanner direction modes for portable scanner
 enum DirectionMode {
@@ -397,7 +395,6 @@ bool handleScan(MFRC522& reader) {
 
    String uid = uidToString(&reader.uid);
   String uidNorm = normalizeUid(uid);
-  String masterNorm = normalizeUid(String(MASTER_UID));
 
   Serial.print("UID ["); Serial.print(DIRECTION); Serial.print("]: "); Serial.println(uid);
   showStatus("Scanning...", "Please wait");
@@ -407,11 +404,7 @@ bool handleScan(MFRC522& reader) {
     debugPrintWifiInfo();
     showStatus("WiFi Disconnect", "Check network");
   } else {
-    bool isAdmin = false;
-    if (uidNorm == masterNorm) {
-      isAdmin = true;
-    } else {
-      isAdmin = checkAdminByApi(uid);
+    bool isAdmin = checkAdminByApi(uid);
     }
 
     if (isAdmin) {
@@ -510,3 +503,4 @@ void loop() {
     }
   }
 }
+

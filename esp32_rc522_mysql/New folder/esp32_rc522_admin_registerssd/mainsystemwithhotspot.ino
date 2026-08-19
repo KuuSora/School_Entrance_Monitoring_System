@@ -36,14 +36,13 @@
   const char* WIFI_PASS = "12345678";
 #endif
 
-const char* DEFAULT_SERVER_PATH = "/School_Entrance_Monitoring_Systems/api";
+const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
 const bool DEBUG_SERIAL = true;
 
 const char* SUBFOLDER_ADMIN = "admin";
 const char* SUBFOLDER_SIGNALS = "signals";
 const char* SUBFOLDER_USERS = "users";
 
-const char* MASTER_UID = "97:2A:59:06";
 
 Preferences prefs;
 String serverTarget;
@@ -302,7 +301,6 @@ bool handleScan(MFRC522& reader, const String& direction) {
 
   String uid = uidToString(&reader.uid);
   String uidNorm = normalizeUid(uid);
-  String masterNorm = normalizeUid(String(MASTER_UID));
 
   Serial.print("UID ["); Serial.print(direction); Serial.print("]: "); Serial.println(uid);
   showStatus("Scanning...", "Please wait");
@@ -312,11 +310,7 @@ bool handleScan(MFRC522& reader, const String& direction) {
     debugPrintWifiInfo();
     showStatus("No Connection", "Check network");
   } else {
-    bool isAdmin = false;
-    if (uidNorm == masterNorm) {
-      isAdmin = true;
-    } else {
-      isAdmin = checkAdminByApi(uid);
+     bool isAdmin = checkAdminByApi(uid);
     }
 
     if (isAdmin) {
@@ -425,3 +419,4 @@ void loop() {
     }
   }
 }
+

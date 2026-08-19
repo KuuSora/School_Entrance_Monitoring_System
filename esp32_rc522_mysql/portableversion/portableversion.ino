@@ -3,6 +3,9 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <Preferences.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 
 // Single RC522 wiring (SPI)
 #define SS_PIN 25
@@ -23,7 +26,7 @@ IPAddress SUBNET(255, 255, 255, 0);
 const char* SERVER_IP = "192.168.4.2";
 
 // This is the ROOT of the api/ folder only
-const char* DEFAULT_SERVER_PATH = "/School_Entrance_Monitoring_Systems/api";
+const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
 const bool DEBUG_SERIAL = true;
 
 // Subfolders under api/
@@ -31,9 +34,6 @@ const char* SUBFOLDER_ADMIN = "admin";
 const char* SUBFOLDER_SIGNALS = "signals";
 const char* SUBFOLDER_USERS = "users";
 const char* SUBFOLDER_SCANS = "scans";
-
-// Master card UID (must match server settings)
-const char* MASTER_UID = "97:2A:59:06";
 
 // Scanner direction modes for portable scanner
 enum DirectionMode {
@@ -54,16 +54,43 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 bool lastToggleState = false;
 const unsigned long BUTTON_DEBOUNCE_MS = 200;
 
-// Scan cooldown to prevent duplicate scans and allow mode changes
+// Scan cooldown to prevent duplicate scans
 bool scanCooldownActive = false;
 unsigned long lastScanTime = 0;
-const unsigned long SCAN_COOLDOWN_MS = 3000;
+const unsigned long SCAN_COOLDOWN_MS = 1200;
+
+// Admin login flag is written by the background network task and read by
+// loop() for the LED blink pattern, so it's marked volatile.
+volatile bool adminLoggedInFlag = false;
+
+// ---------------------------------------------------------------------------
+// ASYNC NETWORKING: everything that talks to the PHP server now runs on a
+// separate FreeRTOS task (pinned to core 0), fed by a queue. loop() (core 1)
+// never blocks on HTTP anymore - it just enqueues a job and keeps scanning.
+// ---------------------------------------------------------------------------
+struct ScanJob {
+  char uid[32];
+  char direction[8];
+};
+
+QueueHandle_t scanQueueHandle = NULL;
+TaskHandle_t networkTaskHandle = NULL;
+const int SCAN_QUEUE_LENGTH = 10;
+
+void restartScanner() {
+  mfrc522.PCD_Init();
+  scanCooldownActive = false;
+  lastScanTime = millis();
+  if (DEBUG_SERIAL) {
+    Serial.println("[SCANNER] Restarted and ready");
+  }
+}
 
 void handleButton() {
   bool currentButtonState = digitalRead(BUTTON_PIN) == LOW;  // Active LOW with pull-up
   static unsigned long lastChange = 0;
   unsigned long now = millis();
-  
+
   if (currentButtonState != lastToggleState && (now - lastChange > BUTTON_DEBOUNCE_MS)) {
     lastChange = now;
     if (DEBUG_SERIAL) {
@@ -74,6 +101,8 @@ void handleButton() {
       currentMode = (DirectionMode)((currentMode + 1) % 3);
       updateDirectionString();
       updateLEDs();
+      updateAdminBlink();
+      restartScanner();
     }
     lastToggleState = currentButtonState;
   }
@@ -82,7 +111,6 @@ void handleButton() {
 void updateLEDs() {
   digitalWrite(LED_IN_PIN, currentMode == MODE_IN ? HIGH : LOW);
   digitalWrite(LED_OUT_PIN, currentMode == MODE_OUT ? HIGH : LOW);
-  digitalWrite(LED_ADMIN_PIN, currentMode == MODE_ADMIN ? HIGH : LOW);
 }
 
 void updateDirectionString() {
@@ -130,13 +158,13 @@ const char* httpCodeToText(int code) {
   }
 }
 
-bool httpPostWithRetry(const String& url, const String& body, int& outCode, String& outResp, int maxRetries = 3) {
+bool httpPostWithRetry(const String& url, const String& body, int& outCode, String& outResp, int maxRetries = 2) {
   outCode = -1;
   outResp = "";
   for (int attempt = 1; attempt <= maxRetries; attempt++) {
     if (!networkReady()) {
       Serial.println("WiFi not ready, waiting...");
-      delay(1000);
+      delay(300);
       continue;
     }
     HTTPClient http;
@@ -146,7 +174,7 @@ bool httpPostWithRetry(const String& url, const String& body, int& outCode, Stri
     }
     http.begin(url);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-    http.setTimeout(5000);
+    http.setTimeout(2500);
     int code = http.POST(body);
     outResp = http.getString();
     outCode = code;
@@ -157,18 +185,18 @@ bool httpPostWithRetry(const String& url, const String& body, int& outCode, Stri
     }
     if (code == HTTP_CODE_OK) return true;
     if (code == HTTP_CODE_NOT_FOUND || code == HTTP_CODE_FORBIDDEN || code == HTTP_CODE_BAD_REQUEST) break;
-    delay(500);
+    delay(250);
   }
   return false;
 }
 
-bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxRetries = 3) {
+bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxRetries = 2) {
   outCode = -1;
   outResp = "";
   for (int attempt = 1; attempt <= maxRetries; attempt++) {
     if (!networkReady()) {
       Serial.println("WiFi not ready, waiting...");
-      delay(1000);
+      delay(300);
       continue;
     }
     HTTPClient http;
@@ -177,7 +205,7 @@ bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxR
       Serial.print(" -> "); Serial.println(url);
     }
     http.begin(url);
-    http.setTimeout(5000);
+    http.setTimeout(2500);
     int code = http.GET();
     outResp = http.getString();
     outCode = code;
@@ -188,7 +216,7 @@ bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxR
     }
     if (code == HTTP_CODE_OK) return true;
     if (code == HTTP_CODE_NOT_FOUND || code == HTTP_CODE_FORBIDDEN || code == HTTP_CODE_BAD_REQUEST) break;
-    delay(500);
+    delay(250);
   }
   return false;
 }
@@ -298,7 +326,7 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, or RESET_URL");
+  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -335,11 +363,18 @@ bool adminLedState = false;
 void updateAdminBlink() {
   if (currentMode == MODE_ADMIN) {
     unsigned long now = millis();
-    if (now - lastAdminBlink > 500) {
-      lastAdminBlink = now;
-      adminLedState = !adminLedState;
+    if (!adminLoggedInFlag) {
+      if (lastAdminBlink == 0 || now - lastAdminBlink > 500) {
+        lastAdminBlink = now;
+        adminLedState = !adminLedState;
+      }
       digitalWrite(LED_ADMIN_PIN, adminLedState ? HIGH : LOW);
+    } else {
+      digitalWrite(LED_ADMIN_PIN, HIGH);
     }
+  } else {
+    digitalWrite(LED_ADMIN_PIN, LOW);
+    lastAdminBlink = 0;
   }
 }
 
@@ -349,7 +384,7 @@ bool checkAdminByApi(const String& uid) {
   String body = "uid=" + uid;
   int code = -1;
   String resp = "";
-  bool ok = httpPostWithRetry(url, body, code, resp);
+  bool ok = httpPostWithRetry(url, body, code, resp, 1);
   return ok;
 }
 
@@ -358,7 +393,7 @@ bool checkRegisteredUser(const String& uid) {
   String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
   int code = -1;
   String resp = "";
-  bool ok = httpGetWithRetry(url, code, resp);
+  bool ok = httpGetWithRetry(url, code, resp, 1);
   return ok && resp.indexOf("\"ok\":true") >= 0;
 }
 
@@ -379,60 +414,91 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
   return httpPostWithRetry(url, body, code, resp);
 }
 
-bool handleScan(MFRC522& reader) {
-  if (!reader.PICC_IsNewCardPresent()) return false;
-   if (!reader.PICC_ReadCardSerial()) {
-     if (DEBUG_SERIAL) Serial.println("Card read failed");
-     return false;
-   }
-
-   if (DEBUG_SERIAL) {
-     Serial.print("RFID Serial raw bytes: ");
-     for (byte i = 0; i < reader.uid.size; i++) {
-       Serial.print(reader.uid.uidByte[i], HEX);
-       if (i < reader.uid.size - 1) Serial.print(" ");
-     }
-     Serial.println();
-   }
-
-   String uid = uidToString(&reader.uid);
-  String uidNorm = normalizeUid(uid);
-  String masterNorm = normalizeUid(String(MASTER_UID));
-
-  Serial.print("UID ["); Serial.print(DIRECTION); Serial.print("]: "); Serial.println(uid);
-  showStatus("Scanning...", "Please wait");
+// ---------------------------------------------------------------------------
+// This is where all the actual server round trips happen now - on the
+// background task, never inside loop().
+// ---------------------------------------------------------------------------
+void processScanJob(const ScanJob& job) {
+  String uid = String(job.uid);
+  String direction = String(job.direction);
 
   if (!networkReady()) {
-    Serial.println("WiFi disconnected");
-    debugPrintWifiInfo();
-    showStatus("WiFi Disconnect", "Check network");
-  } else {
-    bool isAdmin = false;
-    if (uidNorm == masterNorm) {
-      isAdmin = true;
-    } else {
-      isAdmin = checkAdminByApi(uid);
+    if (DEBUG_SERIAL) {
+      Serial.print("[NET] WiFi not ready, dropping job for UID "); Serial.println(uid);
     }
+    return;
+  }
 
-    if (isAdmin) {
-      postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
-      logScan(uid, DIRECTION, uid);
-      showStatus("Admin Access", "Open dashboard");
+  String uidNorm = normalizeUid(uid);
+
+  bool isAdmin = checkAdminByApi(uid);
+
+  if (isAdmin) {
+    if (direction == "ADMIN") {
+      adminLoggedInFlag = true;
+    }
+    postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
+    logScan(uid, direction, uid);
+    if (DEBUG_SERIAL) { Serial.print("[NET] Admin access logged: "); Serial.println(uid); }
+  } else {
+    bool registered = checkRegisteredUser(uid);
+    if (registered) {
+      logScan(uid, direction, "");
+      if (DEBUG_SERIAL) { Serial.print("[NET] Registered scan logged: "); Serial.println(uid); }
     } else {
-      bool registered = checkRegisteredUser(uid);
-      if (registered) {
-        logScan(uid, DIRECTION, "");
-        showStatus("Registered Card", "Not admin");
-      } else {
-        postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
-        showStatus("New Card", "Go Register");
-      }
+      postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
+      if (DEBUG_SERIAL) { Serial.print("[NET] New card signal sent: "); Serial.println(uid); }
+    }
+  }
+}
+
+void networkTask(void* pvParameters) {
+  ScanJob job;
+  for (;;) {
+    if (xQueueReceive(scanQueueHandle, &job, portMAX_DELAY) == pdTRUE) {
+      processScanJob(job);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// handleScan() now only does the fast, local part: read the card and hand it
+// off to the queue. No HTTP calls happen here, so this returns in a few
+// milliseconds and the reader is ready for the next tap almost immediately.
+// ---------------------------------------------------------------------------
+bool handleScan(MFRC522& reader) {
+  if (!reader.PICC_IsNewCardPresent()) return false;
+  if (!reader.PICC_ReadCardSerial()) {
+    if (DEBUG_SERIAL) Serial.println("Card read failed");
+    return false;
+  }
+
+  if (DEBUG_SERIAL) {
+    Serial.print("RFID Serial raw bytes: ");
+    for (byte i = 0; i < reader.uid.size; i++) {
+      Serial.print(reader.uid.uidByte[i], HEX);
+      if (i < reader.uid.size - 1) Serial.print(" ");
+    }
+    Serial.println();
+  }
+
+  String uid = uidToString(&reader.uid);
+  Serial.print("UID ["); Serial.print(DIRECTION); Serial.print("]: "); Serial.println(uid);
+  showStatus("Card Scanned", "Processing...");
+
+  ScanJob job;
+  memset(&job, 0, sizeof(job));
+  uid.toCharArray(job.uid, sizeof(job.uid));
+  DIRECTION.toCharArray(job.direction, sizeof(job.direction));
+
+  if (scanQueueHandle != NULL) {
+    if (xQueueSend(scanQueueHandle, &job, 0) != pdTRUE) {
+      if (DEBUG_SERIAL) Serial.println("[WARN] Scan queue full, job dropped - server too slow?");
     }
   }
 
   reader.PICC_HaltA();
   reader.PCD_StopCrypto1();
-
   scanCooldownActive = true;
   lastScanTime = millis();
   return true;
@@ -460,9 +526,10 @@ void setup() {
     Serial.print("[BTN] Initial state: "); Serial.println(digitalRead(BUTTON_PIN) == LOW ? "PRESSED" : "RELEASED");
   }
   lastToggleState = digitalRead(BUTTON_PIN) == LOW;
-  
+
   // Initialize LEDs to show current mode
   updateLEDs();
+  updateAdminBlink();
   updateDirectionString();
 
   if (DEBUG_SERIAL) {
@@ -496,6 +563,21 @@ void setup() {
     Serial.println(v, HEX);
   }
 
+  // Set up the background networking task + job queue.
+  scanQueueHandle = xQueueCreate(SCAN_QUEUE_LENGTH, sizeof(ScanJob));
+  if (scanQueueHandle == NULL) {
+    Serial.println("[FATAL] Failed to create scan queue");
+  }
+  xTaskCreatePinnedToCore(
+    networkTask,        // task function
+    "NetworkTask",       // name
+    8192,                // stack size
+    NULL,                // params
+    1,                   // priority
+    &networkTaskHandle,  // handle
+    0                    // pin to core 0 (loop() runs on core 1)
+  );
+
   showStatus("Ready to Scan", "");
 }
 
@@ -503,7 +585,7 @@ void loop() {
   handleSerialCommands();
   handleButton();
   updateAdminBlink();
-  
+
   if (scanCooldownActive) {
     if (millis() - lastScanTime > SCAN_COOLDOWN_MS) {
       scanCooldownActive = false;
@@ -513,7 +595,7 @@ void loop() {
     delay(10);
   } else {
     if (!handleScan(mfrc522)) {
-      delay(50);
+      delay(currentMode == MODE_ADMIN ? 10 : 50);
     }
   }
 }
