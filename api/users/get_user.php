@@ -41,28 +41,33 @@ $visitorEmail = columnOrNull($mysqli, 'visitors', 'email', 'email');
 $visitorPhone = columnOrNull($mysqli, 'visitors', 'phone', 'phone');
 $visitorNotes = columnOrNull($mysqli, 'visitors', 'notes', 'notes');
 
+$studentPhoto = columnOrNull($mysqli, 'students', 'photo', 'photo');
+$facultyPhoto = columnOrNull($mysqli, 'faculty', 'photo', 'photo');
+$staffPhoto = columnOrNull($mysqli, 'staff', 'photo', 'photo');
+$visitorPhoto = columnOrNull($mysqli, 'visitors', 'photo', 'photo');
+
 $sql = "SELECT uid, name, student_id, course, school_year, section,
          NULL AS faculty_id, NULL AS staff_id, NULL AS department,
          NULL AS purpose, NULL AS valid_until,
-         {$studentEmail}, {$studentPhone}, {$studentNotes}, 'student' AS role
+         {$studentEmail}, {$studentPhone}, {$studentNotes}, {$studentPhoto}, 'student' AS role
      FROM students WHERE uid = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          faculty_id, NULL, department,
          NULL, NULL,
-         {$facultyEmail}, {$facultyPhone}, {$facultyNotes}, 'faculty' AS role
+         {$facultyEmail}, {$facultyPhone}, {$facultyNotes}, {$facultyPhoto}, 'faculty' AS role
      FROM faculty WHERE uid = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          NULL, staff_id, department,
          NULL, NULL,
-         {$staffEmail}, {$staffPhone}, {$staffNotes}, 'staff' AS role
+         {$staffEmail}, {$staffPhone}, {$staffNotes}, {$staffPhoto}, 'staff' AS role
      FROM staff WHERE uid = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          NULL, NULL, NULL,
          purpose, valid_until,
-         {$visitorEmail}, {$visitorPhone}, {$visitorNotes}, 'visitor' AS role
+         {$visitorEmail}, {$visitorPhone}, {$visitorNotes}, {$visitorPhoto}, 'visitor' AS role
      FROM visitors WHERE uid = ?
      LIMIT 1";
 

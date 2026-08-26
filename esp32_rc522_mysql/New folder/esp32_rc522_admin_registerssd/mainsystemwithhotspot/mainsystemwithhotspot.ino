@@ -5,36 +5,21 @@
 #include <Preferences.h>
 #include "esp_wifi.h"
 
-// ===================== MODE SWITCH =====================
-#define AP_MODE
-// =========================================================
-
 // ===================== WIRING =====================
 // SPI bus shared: SCK=18, MOSI=23, MISO=19 (hardware SPI2)
 // Reader IN (Entry)
-#define SS_PIN_IN    5
+#define SS_PIN_IN     5
 #define RST_PIN_IN   17
 // Reader OUT (Exit)
 #define SS_PIN_OUT   25
 #define RST_PIN_OUT  27
 // HW-316 Relay Module (active LOW)
-#define RELAY_M1     26   // OUT relay
-#define RELAY_M2     21   // IN relay
-// YL-99 Crash Sensor (active LOW, normally OPEN)
-#define SENSOR_PIN   22
+#define RELAY_M1     21   // IN solenoid (left)
+#define RELAY_M2     26   // OUT solenoid (right)
 // =========================================================
 
-#ifdef AP_MODE
-  const char* AP_SSID = "SEMS-ESP32";
-  const char* AP_PASS = "sems12345";
-  IPAddress AP_LOCAL_IP(192, 168, 4, 1);
-  IPAddress AP_GATEWAY(192, 168, 4, 1);
-  IPAddress AP_SUBNET(255, 255, 255, 0);
-  const char* SERVER_IP = "192.168.4.2";
-#else
-  const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
-  const char* WIFI_PASS = "12345678";
-#endif
+const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
+const char* WIFI_PASS = "12345678";
 
 const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
 const bool DEBUG_SERIAL = true;
@@ -42,34 +27,36 @@ const bool DEBUG_SERIAL = true;
 const char* SUBFOLDER_ADMIN = "admin";
 const char* SUBFOLDER_SIGNALS = "signals";
 const char* SUBFOLDER_USERS = "users";
-
+const char* SUBFOLDER_SCANS = "scans";
 
 Preferences prefs;
 String serverTarget;
+
+// Door unlock state with timeout
+bool inUnlocked = false;
+bool outUnlocked = false;
+unsigned long inUnlockTime = 0;
+unsigned long outUnlockTime = 0;
+const unsigned long UNLOCK_TIMEOUT = 3000;
+
+// Scan cooldown per reader to prevent duplicate reads
+unsigned long inLastScanTime = 0;
+unsigned long outLastScanTime = 0;
+const unsigned long SCAN_COOLDOWN_MS = 1500;
 
 MFRC522 mfrc522In(SS_PIN_IN, RST_PIN_IN);
 MFRC522 mfrc522Out(SS_PIN_OUT, RST_PIN_OUT);
 
 bool networkReady() {
-#ifdef AP_MODE
-  return WiFi.softAPgetStationNum() > 0;
-#else
   return WiFi.status() == WL_CONNECTED;
-#endif
 }
 
 void debugPrintWifiInfo() {
   if (!DEBUG_SERIAL) return;
-#ifdef AP_MODE
-  Serial.print("AP SSID: "); Serial.println(AP_SSID);
-  Serial.print("AP IP: "); Serial.println(WiFi.softAPIP());
-  Serial.print("Stations: "); Serial.println(WiFi.softAPgetStationNum());
-#else
   Serial.print("WiFi status: "); Serial.println(WiFi.status());
   Serial.print("SSID: "); Serial.println(WiFi.SSID());
   Serial.print("IP: "); Serial.println(WiFi.localIP());
   Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
-#endif
 }
 
 const char* httpCodeToText(int code) {
@@ -117,12 +104,8 @@ String normalizePath(String path) {
 String buildServerUrl(const String& target) {
   if (target.startsWith("http://") || target.startsWith("https://")) return target;
   String path = normalizePath(target);
-#ifdef AP_MODE
-  return "http://" + String(SERVER_IP) + path;
-#else
   IPAddress gw = WiFi.gatewayIP();
   return "http://" + gw.toString() + path;
-#endif
 }
 
 String joinApiPath(String root, const String& subfolder, const String& filename) {
@@ -195,7 +178,7 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, or RESET_URL");
+  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -225,74 +208,125 @@ void showStatus(const String& line1, const String& line2) {
   Serial.println();
 }
 
-bool checkAdminByApi(const String& uid) {
+const char* httpCodeToTextLocal(int code) {
+  switch (code) {
+    case HTTP_CODE_OK: return "200 OK";
+    case HTTP_CODE_BAD_REQUEST: return "400 Bad Request";
+    case HTTP_CODE_UNAUTHORIZED: return "401 Unauthorized";
+    case HTTP_CODE_FORBIDDEN: return "403 Forbidden";
+    case HTTP_CODE_NOT_FOUND: return "404 Not Found";
+    case HTTP_CODE_METHOD_NOT_ALLOWED: return "405 Method Not Allowed";
+    case HTTP_CODE_INTERNAL_SERVER_ERROR: return "500 Server Error";
+    default: return "(unknown)";
+  }
+}
+
+bool httpPost(const String& url, const String& body, int& outCode) {
   if (!networkReady()) return false;
   HTTPClient http;
-  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "admin_login.php");
   http.begin(url);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  String body = "uid=" + uid;
-  int code = http.POST(body);
+  http.setTimeout(3000);
+  outCode = http.POST(body);
   String resp = http.getString();
   if (DEBUG_SERIAL) {
     Serial.print("POST "); Serial.println(url);
-    Serial.print("HTTP "); Serial.print(code); Serial.print(" "); Serial.println(httpCodeToText(code));
+    Serial.print("HTTP "); Serial.print(outCode); Serial.print(" "); Serial.println(httpCodeToTextLocal(outCode));
     Serial.print("Response: "); Serial.println(resp);
   }
   http.end();
-  return code == HTTP_CODE_OK && resp.indexOf("\"ok\":true") >= 0;
+  return outCode == HTTP_CODE_OK;
 }
 
-bool checkRegisteredUser(const String& uid) {
+bool httpGet(const String& url, int& outCode) {
   if (!networkReady()) return false;
   HTTPClient http;
-  String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
   http.begin(url);
-  int code = http.GET();
+  http.setTimeout(3000);
+  outCode = http.GET();
   String resp = http.getString();
   if (DEBUG_SERIAL) {
     Serial.print("GET "); Serial.println(url);
-    Serial.print("HTTP "); Serial.print(code); Serial.print(" "); Serial.println(httpCodeToText(code));
+    Serial.print("HTTP "); Serial.print(outCode); Serial.print(" "); Serial.println(httpCodeToTextLocal(outCode));
     Serial.print("Response: "); Serial.println(resp);
   }
   http.end();
-  return code == HTTP_CODE_OK && resp.indexOf("\"ok\":true") >= 0;
+  return outCode == HTTP_CODE_OK;
+}
+
+bool checkAdminByApi(const String& uid) {
+  int code = -1;
+  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "admin_login.php");
+  String body = "uid=" + uid;
+  return httpPost(url, body, code) && code == HTTP_CODE_OK;
+}
+
+bool checkRegisteredUser(const String& uid) {
+  int code = -1;
+  String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
+  return httpGet(url, code) && code == HTTP_CODE_OK;
 }
 
 bool postSignal(const String& url, const String& uid) {
-  if (!networkReady()) return false;
-  HTTPClient http;
-  http.begin(url);
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  int code = -1;
   String body = "uid=" + uid;
-  int code = http.POST(body);
-  String resp = http.getString();
-  if (DEBUG_SERIAL) {
-    Serial.print("POST "); Serial.println(url);
-    Serial.print("HTTP "); Serial.print(code); Serial.print(" "); Serial.println(httpCodeToText(code));
-    Serial.print("Response: "); Serial.println(resp);
+  return httpPost(url, body, code);
+}
+
+bool logScan(const String& uid, const String& direction, const String& adminUid) {
+  int code = -1;
+  String url = buildEndpointUrl(SUBFOLDER_SCANS, "log_scan.php");
+  String body = "uid=" + uid + "&direction=" + direction;
+  if (adminUid.length() > 0) {
+    body += "&admin_uid=" + adminUid;
   }
-  http.end();
-  return code == HTTP_CODE_OK;
+  return httpPost(url, body, code);
 }
 
 void lockAll() {
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
-  showStatus("LOCKED", "Crash sensor triggered");
+  inUnlocked = false;
+  outUnlocked = false;
+  inUnlockTime = 0;
+  outUnlockTime = 0;
+  showStatus("LOCKED", "All solenoids off");
+}
+
+void lockIn() {
+  digitalWrite(RELAY_M1, HIGH);
+  inUnlocked = false;
+  inUnlockTime = 0;
+  showStatus("LOCKED IN", "Timeout");
+}
+
+void lockOut() {
+  digitalWrite(RELAY_M2, HIGH);
+  outUnlocked = false;
+  outUnlockTime = 0;
+  showStatus("LOCKED OUT", "Timeout");
 }
 
 void unlockOut() {
-  digitalWrite(RELAY_M1, LOW);
-  showStatus("UNLOCK OUT", "Relay M1 active");
+  digitalWrite(RELAY_M2, LOW);
+  outUnlocked = true;
+  outUnlockTime = millis();
+  showStatus("UNLOCK OUT", "Relay M2 active");
 }
 
 void unlockIn() {
-  digitalWrite(RELAY_M2, LOW);
-  showStatus("UNLOCK IN", "Relay M2 active");
+  digitalWrite(RELAY_M1, LOW);
+  inUnlocked = true;
+  inUnlockTime = millis();
+  showStatus("UNLOCK IN", "Relay M1 active");
 }
 
-bool handleScan(MFRC522& reader, const String& direction) {
+bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastScanTimeRef) {
+  unsigned long now = millis();
+  if (now - lastScanTimeRef < SCAN_COOLDOWN_MS) {
+    return false;
+  }
+
   if (!reader.PICC_IsNewCardPresent()) return false;
   if (!reader.PICC_ReadCardSerial()) {
     if (DEBUG_SERIAL) Serial.println("Card read failed");
@@ -300,44 +334,46 @@ bool handleScan(MFRC522& reader, const String& direction) {
   }
 
   String uid = uidToString(&reader.uid);
-  String uidNorm = normalizeUid(uid);
-
   Serial.print("UID ["); Serial.print(direction); Serial.print("]: "); Serial.println(uid);
   showStatus("Scanning...", "Please wait");
 
+  lastScanTimeRef = now;
+
+  String adminUid = "";
   if (!networkReady()) {
-    Serial.println("Network not ready (laptop not connected to hotspot?)");
+    Serial.println("Network not ready (ESP32 not connected to desktop WiFi?)");
     debugPrintWifiInfo();
     showStatus("No Connection", "Check network");
   } else {
-     bool isAdmin = checkAdminByApi(uid);
-    }
+    bool isAdmin = checkAdminByApi(uid);
 
     if (isAdmin) {
+      adminUid = uid;
       postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
       showStatus("Admin Access", "Open dashboard");
     } else {
       bool registered = checkRegisteredUser(uid);
       if (registered) {
-        showStatus("Registered Card", "Not admin");
+        showStatus("Registered Card", "Access logged");
       } else {
         postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
         showStatus("New Card", "Go Register");
       }
     }
-
-    if (direction == "OUT") {
-      unlockOut();
-    } else if (direction == "IN") {
-      unlockIn();
-    }
   }
+
+  logScan(uid, direction, adminUid);
 
   reader.PICC_HaltA();
   reader.PCD_StopCrypto1();
 
-  delay(3000);
-  lockAll();
+  if (direction == "OUT") {
+    unlockOut();
+    outUnlocked = true;
+  } else if (direction == "IN") {
+    unlockIn();
+    inUnlocked = true;
+  }
   showStatus("Ready to Scan", "");
   return true;
 }
@@ -349,7 +385,7 @@ void setup() {
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
     Serial.print("API root: "); Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, RESET_URL");
+    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
   pinMode(SS_PIN_IN, OUTPUT);
@@ -362,16 +398,7 @@ void setup() {
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
 
-  pinMode(SENSOR_PIN, INPUT_PULLUP);
-
-#ifdef AP_MODE
-  WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY, AP_SUBNET);
-  WiFi.softAP(AP_SSID, AP_PASS);
-  esp_wifi_set_ps(WIFI_PS_NONE);
-  Serial.print("Hotspot started: "); Serial.println(AP_SSID);
-  Serial.print("Connect laptop, static IP: "); Serial.println(SERVER_IP);
-#else
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -379,7 +406,6 @@ void setup() {
     Serial.print(".");
   }
   Serial.println(" connected");
-#endif
 
   debugPrintWifiInfo();
   if (DEBUG_SERIAL) {
@@ -406,17 +432,15 @@ void setup() {
 void loop() {
   handleSerialCommands();
 
-  if (digitalRead(SENSOR_PIN) == LOW) {
-    lockAll();
-    showStatus("LOCKED", "Crash sensor triggered");
-    delay(500);
-    return;
+  if (inUnlocked && (millis() - inUnlockTime >= UNLOCK_TIMEOUT)) {
+    lockIn();
+  }
+  if (outUnlocked && (millis() - outUnlockTime >= UNLOCK_TIMEOUT)) {
+    lockOut();
   }
 
-  if (!handleScan(mfrc522In, "IN")) {
-    if (!handleScan(mfrc522Out, "OUT")) {
-      delay(50);
-    }
-  }
+  handleScan(mfrc522In, "IN", inLastScanTime);
+  handleScan(mfrc522Out, "OUT", outLastScanTime);
+
+  delay(50);
 }
-

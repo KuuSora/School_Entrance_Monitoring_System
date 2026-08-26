@@ -199,7 +199,7 @@ if (!isset($_SESSION['admin_uid'])) {
       font-family: "IBM Plex Sans", sans-serif;
     }
     .id-card-header {
-      background-image: url('/School_Entrance_Monitoring_System/image/idcapsu.png');
+      background-image: url('../image/idcapsu.png');
       background-size: cover;
       background-position: center;
       height: 60px;
@@ -213,7 +213,7 @@ if (!isset($_SESSION['admin_uid'])) {
       width: 100px;
       height: 100px;
       border-radius: 50%;
-      margin: 0 auto 16px auto;
+      margin: 0 auto 25px auto;
       overflow: hidden;
       border: 4px solid #eef6ff;
     }
@@ -345,38 +345,39 @@ if (!isset($_SESSION['admin_uid'])) {
             <div class="stats-column">
               <h1>Live Dashboard</h1>
               <p class="sub">Real-time campus entrance statistics.</p>
-              <div class="stats-dropdown-container">
-                <button id="stats-toggle" class="btn secondary">Live Stats &nbsp;▾</button>
-                <div id="stats-dropdown" class="stats-dropdown hidden">
-                  <div class="card">
-                    <div class="card">
-                      <h3>Today Scans</h3>
-                      <div class="value" id="todayTotal">-</div>
-                      <div class="meta" id="todayMeta">In: - | Out: -</div>
-                    </div>
-                    <div class="card">
-                      <h3>Inside Now</h3>
-                      <div class="value" id="insideTotal">-</div>
-                      <div class="meta" id="insideMeta">Students: - | Faculty: -</div>
-                    </div>
-                    <div class="card alert-card">
-                      <h3>Suspicious Alerts</h3>
-                      <div class="value" id="suspiciousCount">-</div>
-                      <div class="meta" id="suspiciousMeta">Last 24 hours</div>
-                    </div>
-                  </div>
+              <div class="stats-list">
+                <div class="stat-item">
+                  <span class="stat-label">Today Scans</span>
+                  <span class="stat-value" id="todayTotal">-</span>
+                  <span class="stat-meta" id="todayMeta">In: - | Out: -</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Inside Now</span>
+                  <span class="stat-value" id="insideTotal">-</span>
+                  <span class="stat-meta" id="insideMeta">Students: - | Faculty: -</span>
+                </div>
+                <div class="stat-item stat-item-alert">
+                  <span class="stat-label">Suspicious Alerts</span>
+                  <span class="stat-value" id="suspiciousCount">-</span>
+                  <span class="stat-meta" id="suspiciousMeta">Last 24 hours</span>
                 </div>
               </div>
             </div>
             <div class="id-card-container">
               <div id="idCardDisplay" class="id-card-display hidden">
                 <div class="id-card">
-                  <div class="id-card-header"></div>
-                  <div class="id-card-body">
-                    <div class="id-card-photo"><img id="idCardPhoto" src="" alt="User Photo"></div>
-                    <div id="idCardName" class="id-card-name"></div>
-                    <div id="idCardRole" class="id-card-info"></div>
-                    <div id="idCardId" class="id-card-info"></div>
+                  <div class="id-card-base"></div>
+                  <div class="id-card-content">
+                    <div class="id-card-layout">
+                      <div class="id-card-photo-area">
+                        <img id="idCardPhoto" src="" alt="User Photo">
+                      </div>
+                      <div class="id-card-info-area">
+                        <div id="idCardName" class="id-card-name"></div>
+                        <div id="idCardRole" class="id-card-role"></div>
+                        <div id="idCardId" class="id-card-id"></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -404,6 +405,14 @@ if (!isset($_SESSION['admin_uid'])) {
               <div class="meta">Last 7 days</div>
             </div>
           </div>
+        </section>
+
+      </div>
+
+      <div id="reportsTab" class="tab-content">
+        <section class="section">
+          <h1>Reports</h1>
+          <p class="sub">Operational alerts, peak scan windows, and admin activity.</p>
         </section>
 
         <section class="section">
@@ -450,12 +459,7 @@ if (!isset($_SESSION['admin_uid'])) {
           <div class="status" id="chartStatus">Loading charts...</div>
         </section>
 
-      </div>
-
-      <div id="reportsTab" class="tab-content">
         <section class="section">
-          <h1>Reports</h1>
-          <p class="sub">Operational alerts, peak scan windows, and admin activity.</p>
           <div style="margin-bottom:16px;">
             <label for="reportAdminFilter" style="font-size:13px; color:var(--muted); margin-right:6px;">Admin:</label>
             <select id="reportAdminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
@@ -818,18 +822,16 @@ if (!isset($_SESSION['admin_uid'])) {
           <p class="panel-note">Permanent view for in/out scans</p>
         </div>
         <div class="panel-header-actions">
+          <label for="adminFilter" class="filter-label">Admin:</label>
+          <select id="adminFilter" class="filter-select">
+            <option value="">All Admins</option>
+          </select>
+          <label class="filter-label">
+            <input type="checkbox" id="suspiciousOnly" />
+            <span>Only suspicious</span>
+          </label>
           <button class="panel-toggle-btn" id="panelToggleBtn" title="Minimize panel">− Minimize</button>
         </div>
-      </div>
-      <div style="display:flex; gap:8px; align-items:center; margin:6px 0 10px 0;">
-        <label for="adminFilter" style="font-size:13px; color:var(--muted); margin-right:6px;">Admin:</label>
-        <select id="adminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
-          <option value="">All Admins</option>
-        </select>
-        <label style="font-size:13px; color:var(--muted); margin-left:8px; display:flex; align-items:center; gap:6px;">
-          <input type="checkbox" id="suspiciousOnly" />
-          <span>Only suspicious</span>
-        </label>
       </div>
       <div class="status" id="status">Loading...</div>
       <div class="panel-table">
@@ -916,8 +918,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const idCardRoleEl = document.getElementById('idCardRole');
     const idCardIdEl = document.getElementById('idCardId');
     const idCardPlaceholderEl = document.getElementById('idCardPlaceholder');
-    const statsToggleEl = document.getElementById('stats-toggle');
-    const statsDropdownEl = document.getElementById('stats-dropdown');
     const settingsFormEl = document.getElementById('settingsForm');
     const settingsStatusEl = document.getElementById('settingsStatus');
     const settingThemeEl = document.getElementById('settingTheme');
@@ -1490,6 +1490,9 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           btn.classList.add('active');
         }
       });
+      if (tabId === 'reportsTab') {
+        loadCharts();
+      }
     }
 
     function getAdminFilterValue() {
@@ -1797,11 +1800,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         if (data.ok && data.data) {
           const user = data.data;
           
-          // TODO: Replace with actual picture path from user data
-          // You would need to add a 'picture' column to your user tables
-          // and return it from the get_user.php API.
-          const pictureUrl = user.picture || '/School_Entrance_Monitoring_System/image/default-avatar.png';
-          idCardPhotoEl.src = pictureUrl;
+          if (user.photo) {
+            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/' + user.photo;
+          } else {
+            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/idcapsu.png';
+          }
           
           idCardNameEl.textContent = user.name || 'Unknown';
           idCardNameEl.classList.add('yellogreen'); // Add the requested color class
@@ -1838,7 +1841,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       const suspiciousOnly = suspiciousOnlyEl && suspiciousOnlyEl.checked ? 1 : 0;
       try {
         const url = new URL('../api/scans/get_scans.php', window.location.href);
-        url.searchParams.set('limit', '200');
+        url.searchParams.set('limit', '30');
         if (adminUid) url.searchParams.set('admin_uid', adminUid);
         if (suspiciousOnly) url.searchParams.set('suspicious', '1');
         const res = await fetch(url.toString());
@@ -2082,12 +2085,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     });
 
-    if (statsToggleEl && statsDropdownEl) {
-      statsToggleEl.addEventListener('click', () => {
-        statsDropdownEl.classList.toggle('hidden');
-      });
-    }
-
     if (personalUserSelectEl) {
       personalUserSelectEl.addEventListener('change', () => {
         loadUserLogs(personalUserSelectEl.value);
@@ -2245,7 +2242,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     loadAdminStats();
     loadScans();
     loadSuspicious();
-    loadCharts();
     showPrompt();
     pollRegisterSignal();
     if (dailyReportDateEl) {
@@ -2315,6 +2311,23 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     function togglePanel() {
       const isMinimized = scanLogPanel.classList.contains('panel-minimized');
       setPanelMinimized(!isMinimized);
+    }
+
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar && scanLogPanel) {
+      const updatePanelPosition = () => {
+        const isHovered = sidebar.matches(':hover') || document.activeElement && sidebar.contains(document.activeElement);
+        if (isHovered) {
+          document.body.classList.add('sidebar-hovered');
+        } else {
+          document.body.classList.remove('sidebar-hovered');
+        }
+      };
+      sidebar.addEventListener('mouseenter', updatePanelPosition);
+      sidebar.addEventListener('mouseleave', updatePanelPosition);
+      sidebar.addEventListener('focusin', updatePanelPosition);
+      sidebar.addEventListener('focusout', updatePanelPosition);
+      updatePanelPosition();
     }
 
     if (panelToggleBtn && scanLogPanel) {

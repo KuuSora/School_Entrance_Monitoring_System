@@ -102,7 +102,7 @@ body::before {
   letter-spacing: 0.6px;
   text-transform: uppercase;
   font-size: 18px;
-  color: var(--ink-muted);
+  color: var#000000;
 }
 
 .brand .brand-mark {
@@ -125,7 +125,7 @@ body::before {
 
 .hero-sub {
   margin: 0;
-  color: var(--ink-muted);
+  color: var #000000;
   font-size: 16px;
   line-height: 1.7;
   max-width: 520px;
@@ -141,7 +141,7 @@ body::before {
   padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid var(--accent);
-  background: rgba(37, 99, 235, 0.08);
+  background: rgb(0 80 255 / 8%);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -297,7 +297,7 @@ body::before {
     <div class="layout">
       <section class="hero">
         <div class="brand fade-up">
-          <img src="/School_Entrance_Monitoring_System/image\Capiz_State_University.png" alt="CAPSU Logo" class="brand-mark">
+          <img src="../image/Capiz_State_University.png" alt="CAPSU Logo" class="brand-mark">
           School Entrance Gate Monitoring System
         </div>
         <h1 class="hero-title fade-up delay-1">Secured RFID Gate access for <span>Capsunians</span></h1>
@@ -448,5 +448,6 @@ body::before {
   </script>
 </body>
 </html>
+
 
 

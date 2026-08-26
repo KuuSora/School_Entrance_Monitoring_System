@@ -17,13 +17,9 @@
 #define LED_OUT_PIN 15    // LED for OUT mode (Red)
 #define LED_ADMIN_PIN 13  // LED for ADMIN mode (Blue)
 
-// Connect to the 2-scanner hotspot
-const char* WIFI_SSID = "SEMS-ESP32";
-const char* WIFI_PASS = "sems12345";
-IPAddress LOCAL_IP(192, 168, 4, 100);
-IPAddress GATEWAY(192, 168, 4, 1);
-IPAddress SUBNET(255, 255, 255, 0);
-const char* SERVER_IP = "192.168.4.2";
+// Connect to the laptop hotspot
+const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
+const char* WIFI_PASS = "12345678";
 
 // This is the ROOT of the api/ folder only
 const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
@@ -52,12 +48,16 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 // Button and LED state variables
 bool lastToggleState = false;
-const unsigned long BUTTON_DEBOUNCE_MS = 200;
+const unsigned long BUTTON_DEBOUNCE_MS = 500;
 
 // Scan cooldown to prevent duplicate scans
 bool scanCooldownActive = false;
 unsigned long lastScanTime = 0;
 const unsigned long SCAN_COOLDOWN_MS = 1200;
+
+// Prevent mode change right after a scan (debounce + noise immunity)
+unsigned long lastModeChangeTime = 0;
+const unsigned long MODE_CHANGE_COOLDOWN_MS = 1000;
 
 // Admin login flag is written by the background network task and read by
 // loop() for the LED blink pattern, so it's marked volatile.
@@ -98,11 +98,19 @@ void handleButton() {
       Serial.println(currentButtonState ? "CLOSED (ON)" : "OPEN (OFF)");
     }
     if (currentButtonState) {
-      currentMode = (DirectionMode)((currentMode + 1) % 3);
-      updateDirectionString();
-      updateLEDs();
-      updateAdminBlink();
-      restartScanner();
+      unsigned long now = millis();
+      if (now - lastModeChangeTime < MODE_CHANGE_COOLDOWN_MS) {
+        if (DEBUG_SERIAL) {
+          Serial.println("[BTN] Mode change ignored - cooldown active");
+        }
+      } else {
+        currentMode = (DirectionMode)((currentMode + 1) % 3);
+        lastModeChangeTime = now;
+        updateDirectionString();
+        updateLEDs();
+        updateAdminBlink();
+        restartScanner();
+      }
     }
     lastToggleState = currentButtonState;
   }
@@ -134,6 +142,7 @@ void debugPrintWifiInfo() {
   Serial.print("WiFi status: "); Serial.println(WiFi.status());
   Serial.print("SSID: "); Serial.println(WiFi.SSID());
   Serial.print("IP: "); Serial.println(WiFi.localIP());
+  Serial.print("Gateway IP: "); Serial.println(WiFi.gatewayIP());
   Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
 }
 
@@ -253,7 +262,8 @@ String normalizePath(String path) {
 String buildServerUrl(const String& target) {
   if (target.startsWith("http://") || target.startsWith("https://")) return target;
   String path = normalizePath(target);
-  return "http://" + String(SERVER_IP) + path;
+  IPAddress gw = WiFi.gatewayIP();
+  return "http://" + gw.toString() + path;
 }
 
 String joinApiPath(String root, const String& subfolder, const String& filename) {
@@ -414,10 +424,6 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
   return httpPostWithRetry(url, body, code, resp);
 }
 
-// ---------------------------------------------------------------------------
-// This is where all the actual server round trips happen now - on the
-// background task, never inside loop().
-// ---------------------------------------------------------------------------
 void processScanJob(const ScanJob& job) {
   String uid = String(job.uid);
   String direction = String(job.direction);
@@ -430,7 +436,6 @@ void processScanJob(const ScanJob& job) {
   }
 
   String uidNorm = normalizeUid(uid);
-
   bool isAdmin = checkAdminByApi(uid);
 
   if (isAdmin) {
@@ -461,11 +466,6 @@ void networkTask(void* pvParameters) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// handleScan() now only does the fast, local part: read the card and hand it
-// off to the queue. No HTTP calls happen here, so this returns in a few
-// milliseconds and the reader is ready for the next tap almost immediately.
-// ---------------------------------------------------------------------------
 bool handleScan(MFRC522& reader) {
   if (!reader.PICC_IsNewCardPresent()) return false;
   if (!reader.PICC_ReadCardSerial()) {
@@ -533,13 +533,13 @@ void setup() {
   updateDirectionString();
 
   if (DEBUG_SERIAL) {
-    Serial.print("=== PORTABLE SCANNER READY ===");
+    Serial.println("=== PORTABLE SCANNER READY ===");
     Serial.print("Mode: "); Serial.print(currentMode); Serial.print(" ("); Serial.print(DIRECTION); Serial.println(")");
     Serial.println("Press SX: 1x=cycle, 2x=skip, 3x=admin, hold=reset");
     Serial.println("================================");
   }
 
-  WiFi.config(LOCAL_IP, GATEWAY, SUBNET);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   Serial.print("Connecting to hotspot");
@@ -563,19 +563,19 @@ void setup() {
     Serial.println(v, HEX);
   }
 
-  // Set up the background networking task + job queue.
+  // Set up background networking task + job queue
   scanQueueHandle = xQueueCreate(SCAN_QUEUE_LENGTH, sizeof(ScanJob));
   if (scanQueueHandle == NULL) {
     Serial.println("[FATAL] Failed to create scan queue");
   }
   xTaskCreatePinnedToCore(
-    networkTask,        // task function
-    "NetworkTask",       // name
-    8192,                // stack size
-    NULL,                // params
-    1,                   // priority
-    &networkTaskHandle,  // handle
-    0                    // pin to core 0 (loop() runs on core 1)
+    networkTask,
+    "NetworkTask",
+    8192,
+    NULL,
+    1,
+    &networkTaskHandle,
+    0
   );
 
   showStatus("Ready to Scan", "");
