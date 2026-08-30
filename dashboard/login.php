@@ -298,7 +298,7 @@ body::before {
       <section class="hero">
         <div class="brand fade-up">
           <img src="../image/Capiz_State_University.png" alt="CAPSU Logo" class="brand-mark">
-          School Entrance Gate Monitoring System
+          School Entrance Gates Monitoring System
         </div>
         <h1 class="hero-title fade-up delay-1">Secured RFID Gate access for <span>Capsunians</span></h1>
         <p class="hero-sub fade-up delay-2">
