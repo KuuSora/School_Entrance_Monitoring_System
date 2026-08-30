@@ -142,7 +142,7 @@ body.sidebar-hovered .panel-fixed {
   left: 0;
   width: 72px;
   height: calc(100vh - var(--topbar-height));
-  background: var(--sidebar-bg);
+  background: transparent;
   color: var(--sidebar-ink);
   display: flex;
   flex-direction: column;
@@ -152,7 +152,6 @@ body.sidebar-hovered .panel-fixed {
   transition: width 0.3s ease, padding 0.3s ease;
   overflow: hidden;
   z-index: 50;
-  border-right: 1px solid var(--stroke);
 }
 
 .sidebar:hover,
@@ -166,9 +165,6 @@ body.sidebar-hovered .panel-fixed {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8fbfc;
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
   padding: 10px 12px;
   width: 100%;
   font-weight: 700;
@@ -179,21 +175,22 @@ body.sidebar-hovered .panel-fixed {
 }
 
 body.dark-mode .nav-brand {
-  background: #2c2d57;
-  border-color: #3b3d77;
+  background: transparent;
 }
 
 .brand-dot {
   width: 36px;
   height: 36px;
-  background: var(--sidebar-accent);
-  border-radius: 10px;
   display: grid;
   place-items: center;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 14px;
   flex-shrink: 0;
+}
+
+.brand-dot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-text {
@@ -410,7 +407,7 @@ body.dark-mode .card.alert-card .list li .badge {
 
 .preview-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 260px minmax(150px, 1fr) 320px;
   gap: var(--space-md);
   align-items: flex-start;
 }
@@ -433,12 +430,43 @@ body.dark-mode .card.alert-card .list li .badge {
 }
 
 .id-card-container .id-card {
-  width: 380px;
+  width: 150px;
+  min-height: 360px;
   transition: box-shadow 0.3s ease;
 }
 
 .id-card-container .id-card.highlight {
   box-shadow: 0 0 20px 5px var(--accent-color-light);
+}
+
+/* Live stats: normal left column */
+.preview-layout > .stats-column {
+  min-width: 0;
+}
+
+/* Scan log panel docked as the fixed panel on the right */
+.preview-layout > .panel-fixed {
+  position: sticky;
+  top: 20px;
+  left: auto !important;
+  bottom: auto;
+  width: auto !important;
+  height: auto;
+  max-height: calc(100vh - var(--topbar-height) - 40px);
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: auto;
+  transition: none;
+  overflow: hidden;
+}
+
+body.dark-mode .preview-layout > .panel-fixed {
+  border: none;
+}
+
+.preview-layout > .panel-fixed.panel-minimized {
+  display: none;
 }
 
 .id-card-placeholder {
@@ -457,19 +485,75 @@ body.dark-mode .card.alert-card .list li .badge {
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.overview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.overview-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.overview-card h3 {
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-muted);
+  font-weight: 700;
+  min-width: 110px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.overview-card .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+  text-align: right;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.overview-card .meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-align: right;
+  min-width: 70px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+body.dark-mode .overview-card {
+  background: #2c2d57;
+  border-color: #3b3d77;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 10px;
+  padding: 10px 14px;
   background: #ffffff;
   border: 1px solid var(--stroke);
-  border-radius: 10px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .stat-item-alert {
@@ -478,19 +562,23 @@ body.dark-mode .card.alert-card .list li .badge {
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  min-width: 130px;
+  min-width: 110px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .stat-value {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--accent);
   margin-right: auto;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .stat-item-alert .stat-value {
@@ -498,8 +586,10 @@ body.dark-mode .card.alert-card .list li .badge {
 }
 
 .stat-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-muted);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 body.dark-mode .stat-item {
@@ -1214,7 +1304,7 @@ body.dark-mode #registerFormWrap {
   transform: translateX(-50%) translateY(-20px) rotateX(-10deg);
   z-index: 1000;
   perspective: 1000px;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
@@ -1253,19 +1343,23 @@ body.dark-mode #registerFormWrap {
 }
 
 .id-card-layout {
-  display: flex;
-  gap: 20px;
-  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .id-card-photo-area {
-  flex: 0 0 150px;
-  height: 180px;
-  border-radius: 12px;
+  position: absolute;
+  top: 75px;
+  left: 635px;
+  width: 260px;
+  height:  325px;
+  border-radius: 8px;
   overflow: hidden;
   border: 3px solid #ffffff;
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 2;
 }
 
 .id-card-photo-area img {
@@ -1276,7 +1370,10 @@ body.dark-mode #registerFormWrap {
 }
 
 .id-card-info-area {
-  flex: 1;
+  position: absolute;
+  top: 175px;
+  left: 20px;
+  z-index: 2;
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -1284,7 +1381,7 @@ body.dark-mode #registerFormWrap {
 }
 
 .id-card-name {
-  font-size: 24px;
+  font-size: 48px;
   font-weight: 700;
   color: #ffffff;
   margin: 0;
@@ -1300,7 +1397,17 @@ body.dark-mode #registerFormWrap {
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
 }
 
+.id-card-id-area {
+  position: absolute;
+  top: 175px;
+  left: 20px;
+  z-index: 2;
+  text-align: left;
+}
+
 .id-card-id {
+  margin-top: 250px;
+  margin-left: 620px;
   font-size: 14px;
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
@@ -1309,15 +1416,19 @@ body.dark-mode #registerFormWrap {
 .hidden { display: none !important; }
 
 @media (max-width: 1200px) {
-  .main { margin-bottom: 280px; }
+  .preview-layout {
+    grid-template-columns: 1fr;
+  }
   .panel-fixed {
     position: static;
     left: 0;
     width: 100%;
     height: auto;
+    max-height: none;
     border-top: 1px solid var(--stroke);
     margin: 0;
     border-radius: 0;
+    overflow: visible;
   }
   .floating-log-btn { display: none !important; }
 }

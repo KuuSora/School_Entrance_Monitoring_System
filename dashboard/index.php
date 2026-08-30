@@ -123,12 +123,6 @@ if (!isset($_SESSION['admin_uid'])) {
 
     .sidebar .nav-brand {
       background: #f8fbfc;
-      border: 1px solid var(--border-color);
-    }
-
-    .dark-mode .sidebar .nav-brand {
-      background: #2c2d57;
-      border-color: #3b3d77;
     }
 
     .card, .panel-fixed {
@@ -273,7 +267,7 @@ if (!isset($_SESSION['admin_uid'])) {
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-title">RFID Attendance Dashboard</div>
+    <div class="topbar-title">Capiz State University Pilar Satallite College</div>
     <div class="topbar-actions">
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
@@ -285,8 +279,8 @@ if (!isset($_SESSION['admin_uid'])) {
   <div class="layout">
     <nav class="sidebar">
       <div class="nav-brand">
-        <span class="brand-dot">RF</span>
-        <span class="brand-text">RFID Console</span>
+        <span class="brand-dot"><img src="/server/School_Entrance_Monitoring_System/image/Capiz_State_University.png" alt="CAPSU"></span>
+        <span class="brand-text">CAPSU GATE</span>
       </div>
       <button class="tab-btn active" data-tab="dashboardTab" title="Live Preview">
         <span class="tab-icon" aria-hidden="true">
@@ -362,48 +356,81 @@ if (!isset($_SESSION['admin_uid'])) {
                   <span class="stat-meta" id="suspiciousMeta">Last 24 hours</span>
                 </div>
               </div>
+              <div class="overview-grid">
+                <div class="overview-card">
+                  <h3>Week Scans</h3>
+                  <div class="value" id="weekTotal">-</div>
+                  <div class="meta" id="weekMeta">Avg/day: -</div>
+                </div>
+                <div class="overview-card">
+                  <h3>Month Scans</h3>
+                  <div class="value" id="monthTotal">-</div>
+                  <div class="meta" id="monthMeta">Best day: -</div>
+                </div>
+                <div class="overview-card">
+                  <h3>Active Students</h3>
+                  <div class="value" id="activeStudents">-</div>
+                  <div class="meta">Last 7 days</div>
+                </div>
+              </div>
             </div>
             <div class="id-card-container">
-              <div id="idCardDisplay" class="id-card-display hidden">
+              <div id="idCardDisplay" class="id-card-display">
                 <div class="id-card">
                   <div class="id-card-base"></div>
                   <div class="id-card-content">
                     <div class="id-card-layout">
                       <div class="id-card-photo-area">
-                        <img id="idCardPhoto" src="" alt="User Photo">
+                        <img id="idCardPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo">
                       </div>
                       <div class="id-card-info-area">
-                        <div id="idCardName" class="id-card-name"></div>
-                        <div id="idCardRole" class="id-card-role"></div>
-                        <div id="idCardId" class="id-card-id"></div>
+                        <div id="idCardName" class="id-card-name">Sample Name</div>
+                        <div id="idCardRole" class="id-card-role">Student</div>
+                      </div>
+                      <div class="id-card-id-area">
+                        <div id="idCardId" class="id-card-id">ID: 123456</div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div id="idCardPlaceholder" class="id-card-placeholder">Waiting for next scan...</div>
+              <div id="idCardPlaceholder" class="id-card-placeholder hidden">Waiting for next scan...</div>
             </div>
-          </div>
-        </section>
-        <section class="section">
-          <h1>Overview</h1>
-          <p class="sub">Quick stats for the week and month.</p>
-          <div class="grid">
-            <div class="card">
-              <h3>Week Scans</h3>
-              <div class="value" id="weekTotal">-</div>
-              <div class="meta" id="weekMeta">Avg/day: -</div>
-            </div>
-            <div class="card">
-              <h3>Month Scans</h3>
-              <div class="value" id="monthTotal">-</div>
-              <div class="meta" id="monthMeta">Best day: -</div>
-            </div>
-            <div class="card">
-              <h3>Active Students</h3>
-              <div class="value" id="activeStudents">-</div>
-              <div class="meta">Last 7 days</div>
-            </div>
+            <aside class="panel-fixed" id="scanLogPanel">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">RFID Scan Log</h2>
+                  <p class="panel-note">Permanent view for in/out scans</p>
+                </div>
+                <div class="panel-header-actions">
+                  <label for="adminFilter" class="filter-label">Admin:</label>
+                  <select id="adminFilter" class="filter-select">
+                    <option value="">All Admins</option>
+                  </select>
+                  <label class="filter-label">
+                    <input type="checkbox" id="suspiciousOnly" />
+                    <span>Only suspicious</span>
+                  </label>
+                  <button class="panel-toggle-btn" id="panelToggleBtn" title="Minimize panel">− Minimize</button>
+                </div>
+              </div>
+              <div class="status" id="status">Loading...</div>
+              <div class="panel-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>User</th>
+                      <th>Dir</th>
+                      <th>UID</th>
+                      <th>Admin</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rows"></tbody>
+                </table>
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -815,41 +842,6 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
-    <aside class="panel-fixed" id="scanLogPanel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">RFID Scan Log</h2>
-          <p class="panel-note">Permanent view for in/out scans</p>
-        </div>
-        <div class="panel-header-actions">
-          <label for="adminFilter" class="filter-label">Admin:</label>
-          <select id="adminFilter" class="filter-select">
-            <option value="">All Admins</option>
-          </select>
-          <label class="filter-label">
-            <input type="checkbox" id="suspiciousOnly" />
-            <span>Only suspicious</span>
-          </label>
-          <button class="panel-toggle-btn" id="panelToggleBtn" title="Minimize panel">− Minimize</button>
-        </div>
-      </div>
-      <div class="status" id="status">Loading...</div>
-      <div class="panel-table">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User</th>
-              <th>Dir</th>
-              <th>UID</th>
-              <th>Admin</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-    </aside>
   <button class="floating-log-btn" id="floatingLogBtn" title="Open scan log">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     <span class="badge" id="scanBadge" style="display:none">0</span>
@@ -1803,7 +1795,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           if (user.photo) {
             idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/' + user.photo;
           } else {
-            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/idcapsu.png';
+             idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
           }
           
           idCardNameEl.textContent = user.name || 'Unknown';
@@ -1822,17 +1814,18 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const cardEl = idCardDisplayEl.querySelector('.id-card');
           cardEl.classList.add('highlight');
 
-          // Clear any existing timeout and set a new one to hide the card
-          if (idCardTimeout) clearTimeout(idCardTimeout);
-          // Hide after 12 seconds, remove highlight sooner
-          setTimeout(() => cardEl.classList.remove('highlight'), 4000);
-          idCardTimeout = setTimeout(hideIdCard, 12000);
+          // TEMPORARY: disable auto-hide for layout editing
+          // if (idCardTimeout) clearTimeout(idCardTimeout);
+          // setTimeout(() => cardEl.classList.remove('highlight'), 4000);
+          // idCardTimeout = setTimeout(hideIdCard, 12000);
         } else {
-          hideIdCard();
+          // TEMPORARY: disable auto-hide for layout editing
+          // hideIdCard();
         }
       } catch (err) {
         console.error("Failed to fetch user for ID card", err);
-        hideIdCard();
+        // TEMPORARY: disable auto-hide for layout editing
+        // hideIdCard();
       }
     }
 
