@@ -51,20 +51,21 @@ if (count($whereParts) > 0) {
 $result = $mysqli->query(
     'SELECT s.id, s.uid, s.direction, s.created_at, s.admin_uid,
             COALESCE(p.name, "New User") AS name, p.role,
+            COALESCE(p.department, "") AS department,
             COALESCE(a.name, "") AS admin_name,
             CASE WHEN ss.cur_id IS NULL THEN 0 ELSE 1 END AS suspicious
      FROM scans s
      LEFT JOIN (
-         SELECT uid, name, "student" AS role FROM students
-         UNION ALL
-         SELECT uid, name, "faculty" AS role FROM faculty
-         UNION ALL
-         SELECT uid, name, "staff" AS role FROM staff
-         UNION ALL
-         SELECT uid, name, "visitor" AS role FROM visitors
-         UNION ALL
-         SELECT uid, name, "admin" AS role FROM admins
-     ) p ON s.uid = p.uid
+          SELECT uid, name, "student" AS role, NULL AS department FROM students
+          UNION ALL
+          SELECT uid, name, "faculty" AS role, department FROM faculty
+          UNION ALL
+          SELECT uid, name, "staff" AS role, department FROM staff
+          UNION ALL
+          SELECT uid, name, "visitor" AS role, NULL AS department FROM visitors
+          UNION ALL
+          SELECT uid, name, "admin" AS role, NULL AS department FROM admins
+      ) p ON s.uid = p.uid
      LEFT JOIN admins a ON s.admin_uid = a.uid
      LEFT JOIN (
          SELECT s2.id AS cur_id

@@ -223,46 +223,14 @@ if (!isset($_SESSION['admin_uid'])) {
   </style>
   <style>
     /* Dashboard Preview Layout */
-    .preview-layout {
-      display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: var(--space-lg);
-      align-items: flex-start;
+    :root {
+      --space-xs: 6px;
+      --space-sm: 12px;
+      --space-md: 18px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --topbar-height: 64px;
     }
-    .preview-layout > .stats-column {
-      min-width: 0;
-    }
-    .preview-layout > .id-card-container {
-      min-width: 0;
-    }
-    .id-card-container {
-      position: sticky;
-      top: 20px;
-    }
-    .id-card-container .id-card-display {
-      position: static;
-      transform: none;
-      opacity: 1;
-      transition: none;
-    }
-    .id-card-container .id-card {
-      width: 100%;
-      transition: box-shadow 0.3s ease;
-    }
-    .id-card-container .id-card.highlight {
-      box-shadow: 0 0 20px 5px var(--accent-color-light);
-    }
-    .id-card-placeholder {
-      display: grid;
-      place-items: center;
-      height: 320px; /* Match card height */
-      border: 2px dashed var(--border-color);
-      border-radius: 16px;
-      color: var(--muted-color);
-      text-align: center;
-      font-size: 14px;
-    }
-    .id-card-placeholder.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -336,10 +304,56 @@ if (!isset($_SESSION['admin_uid'])) {
       <div id="dashboardTab" class="tab-content active">
         <section class="sectionlivedashboard">
           <div class="preview-layout">
+            <div class="top-row">
+              <aside class="panel-fixed" id="scanLogPanel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">RFID Scan Log</h2>
+                    <p class="panel-note">Permanent view for in/out scans</p>
+                  </div>
+                </div>
+                <div class="status" id="status">Loading...</div>
+                <div class="panel-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Dir</th>
+                        <th>UID</th>
+                        <th>Dept</th>
+                        <th>Admin</th>
+                        <th>Time</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                  </table>
+                </div>
+              </aside>
+              <div class="id-card-container">
+                <div id="idCardDisplay" class="id-card-display">
+                  <div class="id-card">
+                    <div class="id-card-base"></div>
+                    <div class="id-card-content">
+                      <div class="id-card-layout">
+                        <div class="id-card-photo-area">
+                          <img id="idCardPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo">
+                        </div>
+                        <div class="id-card-info-area">
+                          <div id="idCardName" class="id-card-name">Sample Name</div>
+                          <div id="idCardRole" class="id-card-role">Student</div>
+                        </div>
+                        <div class="id-card-id-area">
+                          <div id="idCardId" class="id-card-id">ID: 123456</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="idCardPlaceholder" class="id-card-placeholder hidden">Waiting for next scan...</div>
+              </div>
+            </div>
             <div class="stats-column">
-              <h1>Live Dashboard</h1>
-              <p class="sub">Real-time campus entrance statistics.</p>
-              <div class="stats-list">
+              <div class="stats-cards">
                 <div class="stat-item">
                   <span class="stat-label">Today Scans</span>
                   <span class="stat-value" id="todayTotal">-</span>
@@ -351,86 +365,27 @@ if (!isset($_SESSION['admin_uid'])) {
                   <span class="stat-meta" id="insideMeta">Students: - | Faculty: -</span>
                 </div>
                 <div class="stat-item stat-item-alert">
-                  <span class="stat-label">Suspicious Alerts</span>
+                  <span class="stat-label">Suspicious</span>
                   <span class="stat-value" id="suspiciousCount">-</span>
-                  <span class="stat-meta" id="suspiciousMeta">Last 24 hours</span>
+                  <span class="stat-meta" id="suspiciousMeta">24h</span>
                 </div>
-              </div>
-              <div class="overview-grid">
                 <div class="overview-card">
-                  <h3>Week Scans</h3>
+                  <h3>Week</h3>
                   <div class="value" id="weekTotal">-</div>
                   <div class="meta" id="weekMeta">Avg/day: -</div>
                 </div>
                 <div class="overview-card">
-                  <h3>Month Scans</h3>
+                  <h3>Month</h3>
                   <div class="value" id="monthTotal">-</div>
                   <div class="meta" id="monthMeta">Best day: -</div>
                 </div>
                 <div class="overview-card">
-                  <h3>Active Students</h3>
+                  <h3>Active</h3>
                   <div class="value" id="activeStudents">-</div>
-                  <div class="meta">Last 7 days</div>
+                  <div class="meta">7d</div>
                 </div>
               </div>
             </div>
-            <div class="id-card-container">
-              <div id="idCardDisplay" class="id-card-display">
-                <div class="id-card">
-                  <div class="id-card-base"></div>
-                  <div class="id-card-content">
-                    <div class="id-card-layout">
-                      <div class="id-card-photo-area">
-                        <img id="idCardPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo">
-                      </div>
-                      <div class="id-card-info-area">
-                        <div id="idCardName" class="id-card-name">Sample Name</div>
-                        <div id="idCardRole" class="id-card-role">Student</div>
-                      </div>
-                      <div class="id-card-id-area">
-                        <div id="idCardId" class="id-card-id">ID: 123456</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div id="idCardPlaceholder" class="id-card-placeholder hidden">Waiting for next scan...</div>
-            </div>
-            <aside class="panel-fixed" id="scanLogPanel">
-              <div class="panel-header">
-                <div>
-                  <h2 class="panel-title">RFID Scan Log</h2>
-                  <p class="panel-note">Permanent view for in/out scans</p>
-                </div>
-                <div class="panel-header-actions">
-                  <label for="adminFilter" class="filter-label">Admin:</label>
-                  <select id="adminFilter" class="filter-select">
-                    <option value="">All Admins</option>
-                  </select>
-                  <label class="filter-label">
-                    <input type="checkbox" id="suspiciousOnly" />
-                    <span>Only suspicious</span>
-                  </label>
-                  <button class="panel-toggle-btn" id="panelToggleBtn" title="Minimize panel">− Minimize</button>
-                </div>
-              </div>
-              <div class="status" id="status">Loading...</div>
-              <div class="panel-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>User</th>
-                      <th>Dir</th>
-                      <th>UID</th>
-                      <th>Admin</th>
-                      <th>Time</th>
-                    </tr>
-                  </thead>
-                  <tbody id="rows"></tbody>
-                </table>
-              </div>
-            </aside>
           </div>
         </section>
 
@@ -842,10 +797,6 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
-  <button class="floating-log-btn" id="floatingLogBtn" title="Open scan log">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <span class="badge" id="scanBadge" style="display:none">0</span>
-  </button>
   </div>
 
   <script src="vendor/chart.umd.min.js"></script>
@@ -977,9 +928,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       const panel = document.getElementById('scanLogPanel');
       if (!panel) {
         return;
-      }
-      if (panel.classList.contains('panel-minimized')) {
-        setPanelMinimized(false);
       }
       panel.classList.remove('panel-focus');
       // Restart highlight animation for repeated clicks.
@@ -1874,13 +1822,14 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
           const suspiciousBadge = row.suspicious == 1 ? '<span class="suspicious-badge">⚠</span>' : '';
           const trClass = row.suspicious == 1 ? 'class="suspicious-row"' : '';
+          const deptDisplay = row.department ? row.department : '';
 
           // add data attributes so we can target the newest scan row for animation
           newHtml += `<tr ${trClass} data-scan-id="${row.id}" data-direction="${dir}">
-            <td>${row.id}</td>
             <td>${userDisplay}${suspiciousBadge}</td>
             <td>${dir}</td>
             <td>${row.uid}</td>
+            <td>${deptDisplay}</td>
             <td>${adminDisplay}</td>
             <td>${row.created_at}</td>
           </tr>`;
@@ -1896,10 +1845,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
         rowsEl.innerHTML = newHtml;
         statusEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
-        if (scanBadge) {
-          scanBadge.textContent = data.data.length || '';
-          scanBadge.style.display = data.data.length ? 'grid' : 'none';
-        }
 
         // highlight the newest scan row with a glow animation
         if (newestScan) {
@@ -2282,29 +2227,8 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     let registerPollInterval = null;
     let adminPollInterval = null;
 
-    // Panel minimize toggle
-    const panelToggleBtn = document.getElementById('panelToggleBtn');
+    // Scan log panel references
     const scanLogPanel = document.getElementById('scanLogPanel');
-    const floatingLogBtn = document.getElementById('floatingLogBtn');
-    const scanBadge = document.getElementById('scanBadge');
-
-    function setPanelMinimized(minimized) {
-      if (!scanLogPanel) return;
-      if (minimized) {
-        scanLogPanel.classList.add('panel-minimized');
-        document.body.classList.add('panel-minimized');
-        if (panelToggleBtn) panelToggleBtn.textContent = '+ Maximize';
-      } else {
-        scanLogPanel.classList.remove('panel-minimized');
-        document.body.classList.remove('panel-minimized');
-        if (panelToggleBtn) panelToggleBtn.textContent = '\u2212 Minimize';
-      }
-    }
-
-    function togglePanel() {
-      const isMinimized = scanLogPanel.classList.contains('panel-minimized');
-      setPanelMinimized(!isMinimized);
-    }
 
     const sidebar = document.querySelector('.sidebar');
     if (sidebar && scanLogPanel) {
@@ -2323,12 +2247,6 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       updatePanelPosition();
     }
 
-    if (panelToggleBtn && scanLogPanel) {
-      panelToggleBtn.addEventListener('click', togglePanel);
-    }
-    if (floatingLogBtn && scanLogPanel) {
-      floatingLogBtn.addEventListener('click', () => setPanelMinimized(false));
-    }
     // Logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {

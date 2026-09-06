@@ -16,6 +16,7 @@
 // HW-316 Relay Module (active LOW)
 #define RELAY_M1     21   // IN solenoid (left)
 #define RELAY_M2     26   // OUT solenoid (right)
+#define BUZZER_PIN   14   // Active HIGH buzzer for access granted
 // =========================================================
 
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
@@ -43,6 +44,10 @@ const unsigned long UNLOCK_TIMEOUT = 3000;
 unsigned long inLastScanTime = 0;
 unsigned long outLastScanTime = 0;
 const unsigned long SCAN_COOLDOWN_MS = 1500;
+
+// Buzzer feedback for access granted (non-blocking)
+unsigned long buzzerEndTime = 0;
+const unsigned long BUZZER_DURATION_MS = 1000;
 
 MFRC522 mfrc522In(SS_PIN_IN, RST_PIN_IN);
 MFRC522 mfrc522Out(SS_PIN_OUT, RST_PIN_OUT);
@@ -283,6 +288,11 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
   return httpPost(url, body, code);
 }
 
+void triggerBuzzer() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  buzzerEndTime = millis() + BUZZER_DURATION_MS;
+}
+
 void lockAll() {
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
@@ -312,6 +322,7 @@ void unlockOut() {
   outUnlocked = true;
   outUnlockTime = millis();
   showStatus("UNLOCK OUT", "Relay M2 active");
+  triggerBuzzer();
 }
 
 void unlockIn() {
@@ -319,6 +330,7 @@ void unlockIn() {
   inUnlocked = true;
   inUnlockTime = millis();
   showStatus("UNLOCK IN", "Relay M1 active");
+  triggerBuzzer();
 }
 
 bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastScanTimeRef) {
@@ -347,19 +359,21 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   } else {
     bool isAdmin = checkAdminByApi(uid);
 
-    if (isAdmin) {
-      adminUid = uid;
-      postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
-      showStatus("Admin Access", "Open dashboard");
-    } else {
-      bool registered = checkRegisteredUser(uid);
-      if (registered) {
-        showStatus("Registered Card", "Access logged");
-      } else {
-        postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
-        showStatus("New Card", "Go Register");
-      }
-    }
+     if (isAdmin) {
+       adminUid = uid;
+       postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
+       showStatus("Admin Access", "Open dashboard");
+       triggerBuzzer();
+     } else {
+       bool registered = checkRegisteredUser(uid);
+       if (registered) {
+         showStatus("Registered Card", "Access logged");
+         triggerBuzzer();
+       } else {
+         postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
+         showStatus("New Card", "Go Register");
+       }
+     }
   }
 
   logScan(uid, direction, adminUid);
@@ -397,6 +411,9 @@ void setup() {
   pinMode(RELAY_M2, OUTPUT);
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -437,6 +454,10 @@ void loop() {
   }
   if (outUnlocked && (millis() - outUnlockTime >= UNLOCK_TIMEOUT)) {
     lockOut();
+  }
+  if (buzzerEndTime > 0 && millis() >= buzzerEndTime) {
+    digitalWrite(BUZZER_PIN, LOW);
+    buzzerEndTime = 0;
   }
 
   handleScan(mfrc522In, "IN", inLastScanTime);
