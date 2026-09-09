@@ -11,29 +11,32 @@ if (!isset($_SESSION['admin_uid'])) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RFID Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5">
   <style>
     :root {
-      --bg-color: #f4f7fb;
+      --bg-color: #f8fbff;
+      --bg-gradient: linear-gradient(135deg, #f8fbff 0%, #ffffff 75%);
       --card-bg: #ffffff;
-      --text-color: #102033;
-      --muted-color: #5b6b7f;
-      --border-color: #d8e1ea;
-      --accent-color: #0f766e;
-      --accent-color-light: #e6fffb;
-      --shadow-color: rgba(0, 0, 0, 0.05);
+      --text-color: #0f172a;
+      --muted-color: #64748b;
+      --border-color: #cbd5e1;
+      --accent-color: #1d4ed8;
+      --accent-color-light: #dbeafe;
+      --shadow-color: rgba(15, 27, 52, 0.10);
       --danger-color: #dc2626;
       --danger-bg: #fef2f2;
       --sidebar-bg: #ffffff;
-      --sidebar-accent: #0f766e;
-      --sidebar-ink: #102033;
-      --sidebar-hover: rgba(15, 118, 110, 0.08);
-      --sidebar-active-bg: #e6fffb;
-      --sidebar-icon-bg: #edf7f6;
+      --sidebar-accent: #1d4ed8;
+      --sidebar-ink: #0f172a;
+      --sidebar-hover: rgba(29, 78, 216, 0.08);
+      --sidebar-active-bg: #dbeafe;
+      --sidebar-icon-bg: #eff6ff;
+      --yellow-accent: #f59e0b;
     }
 
     .dark-mode {
       --bg-color: #242547;
+      --bg-gradient: #242547;
       --card-bg: #2c2d57;
       --text-color: #f2f2fb;
       --muted-color: #b495a4;
@@ -52,15 +55,16 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     body {
+      background: var(--bg-gradient);
       background-color: var(--bg-color);
       color: var(--text-color);
       transition: background-color 0.3s, color 0.3s;
     }
 
     .topbar {
-      background-color: var(--card-bg);
+      background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
       border-bottom: 1px solid var(--border-color);
-      box-shadow: 0 2px 4px var(--shadow-color);
+      box-shadow: 0 2px 8px var(--shadow-color);
     }
 
     .sidebar {
@@ -135,7 +139,7 @@ if (!isset($_SESSION['admin_uid'])) {
 
     .card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 12px 24px rgba(15, 27, 52, 0.12);
     }
 
     .card .value {
@@ -235,7 +239,10 @@ if (!isset($_SESSION['admin_uid'])) {
 </head>
 <body>
   <header class="topbar">
-    <div class="topbar-title">Capiz State University Pilar Satallite College</div>
+    <div class="topbar-brand">
+      <img src="/server/School_Entrance_Monitoring_System/image/Capiz_State_University.png" alt="CAPSU" class="topbar-logo" />
+      <div class="topbar-title">Capiz State University Pilar Satallite College</div>
+    </div>
     <div class="topbar-actions">
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
@@ -308,7 +315,7 @@ if (!isset($_SESSION['admin_uid'])) {
               <aside class="panel-fixed" id="scanLogPanel">
                 <div class="panel-header">
                   <div>
-                    <h2 class="panel-title">RFID Scan Log</h2>
+                    <h2 class="panel-title"> LIVE S.E.M.S DASHBOARD</h2>
                     <p class="panel-note">Permanent view for in/out scans</p>
                   </div>
                 </div>
@@ -354,32 +361,32 @@ if (!isset($_SESSION['admin_uid'])) {
             </div>
             <div class="stats-column">
               <div class="stats-cards">
-                <div class="stat-item">
+                <div class="stat-item stat-today">
                   <span class="stat-label">Today Scans</span>
                   <span class="stat-value" id="todayTotal">-</span>
                   <span class="stat-meta" id="todayMeta">In: - | Out: -</span>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item stat-inside">
                   <span class="stat-label">Inside Now</span>
                   <span class="stat-value" id="insideTotal">-</span>
                   <span class="stat-meta" id="insideMeta">Students: - | Faculty: -</span>
                 </div>
-                <div class="stat-item stat-item-alert">
+                <div class="stat-item stat-item-alert stat-suspicious">
                   <span class="stat-label">Suspicious</span>
                   <span class="stat-value" id="suspiciousCount">-</span>
                   <span class="stat-meta" id="suspiciousMeta">24h</span>
                 </div>
-                <div class="overview-card">
+                <div class="overview-card card-week">
                   <h3>Week</h3>
                   <div class="value" id="weekTotal">-</div>
                   <div class="meta" id="weekMeta">Avg/day: -</div>
                 </div>
-                <div class="overview-card">
+                <div class="overview-card card-month">
                   <h3>Month</h3>
                   <div class="value" id="monthTotal">-</div>
                   <div class="meta" id="monthMeta">Best day: -</div>
                 </div>
-                <div class="overview-card">
+                <div class="overview-card card-active">
                   <h3>Active</h3>
                   <div class="value" id="activeStudents">-</div>
                   <div class="meta">7d</div>

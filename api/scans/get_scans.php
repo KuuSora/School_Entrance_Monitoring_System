@@ -222,15 +222,15 @@ $insideRes = $mysqli->query(
                 SUM(s.direction = 'IN') AS total,
                 SUM(s.direction = 'IN' AND p.role = 'student') AS students,
                 SUM(s.direction = 'IN' AND p.role = 'faculty') AS faculty
-         FROM scans s
-         JOIN (SELECT uid, MAX(id) AS max_id FROM scans GROUP BY uid) last
-             ON s.uid = last.uid AND s.id = last.max_id
-         LEFT JOIN (
-             SELECT uid, 'student' AS role FROM students
-             UNION ALL SELECT uid, 'faculty' AS role FROM faculty
-             UNION ALL SELECT uid, 'staff' AS role FROM staff
-             UNION ALL SELECT uid, 'visitor' AS role FROM visitors
-         ) p ON s.uid = p.uid"
+    FROM scans s
+    JOIN (SELECT uid, MAX(id) AS max_id FROM scans WHERE created_at >= '{$dayStartStr}' AND created_at < '{$dayEndStr}' GROUP BY uid) last
+        ON s.uid = last.uid AND s.id = last.max_id
+    LEFT JOIN (
+        SELECT uid, 'student' AS role FROM students
+        UNION ALL SELECT uid, 'faculty' AS role FROM faculty
+        UNION ALL SELECT uid, 'staff' AS role FROM staff
+        UNION ALL SELECT uid, 'visitor' AS role FROM visitors
+    ) p ON s.uid = p.uid"
 );
 if ($insideRes) {
     $insideRow = $insideRes->fetch_assoc();
