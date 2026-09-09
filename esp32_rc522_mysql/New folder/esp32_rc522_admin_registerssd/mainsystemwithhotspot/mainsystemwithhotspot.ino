@@ -16,6 +16,7 @@
 // HW-316 Relay Module (active LOW)
 #define RELAY_M1     21   // IN solenoid (left)
 #define RELAY_M2     26   // OUT solenoid (right)
+#define BUZZER_PIN   14   // Active HIGH buzzer for access granted
 // =========================================================
 
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
@@ -43,6 +44,10 @@ const unsigned long UNLOCK_TIMEOUT = 3000;
 unsigned long inLastScanTime = 0;
 unsigned long outLastScanTime = 0;
 const unsigned long SCAN_COOLDOWN_MS = 1500;
+
+// Buzzer feedback for access granted (non-blocking)
+unsigned long buzzerEndTime = 0;
+const unsigned long BUZZER_DURATION_MS = 1000;
 
 MFRC522 mfrc522In(SS_PIN_IN, RST_PIN_IN);
 MFRC522 mfrc522Out(SS_PIN_OUT, RST_PIN_OUT);
@@ -170,13 +175,6 @@ void handleSerialCommands() {
     return;
   }
 
-  if (line == "TEST_READERS") {
-    Serial.println("=== Reader Diagnostics ===");
-    debugReader("IN", mfrc522In);
-    debugReader("OUT", mfrc522Out);
-    return;
-  }
-
   if (line == "RESET_URL") {
     if (clearServerUrl()) {
       serverTarget = String(DEFAULT_SERVER_PATH);
@@ -185,7 +183,7 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, TEST_READERS, or RESET_URL");
+  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -226,64 +224,6 @@ const char* httpCodeToTextLocal(int code) {
     case HTTP_CODE_INTERNAL_SERVER_ERROR: return "500 Server Error";
     default: return "(unknown)";
   }
-}
-
-void debugReader(const char* label, MFRC522& reader) {
-  if (!DEBUG_SERIAL) return;
-  Serial.print("[DIAG] Reader "); Serial.print(label); Serial.println(" ===");
-  byte ver = reader.PCD_ReadRegister(MFRC522::VersionReg);
-  Serial.print("  VersionReg: 0x"); Serial.println(ver, HEX);
-  if (ver == 0x00 || ver == 0xFF) {
-    Serial.println("  ERROR: No SPI response from MFRC522 (check wiring/CS)");
-  } else if (ver == 0x92 || ver == 0x90 || ver == 0x88 || ver == 0x12) {
-    Serial.println("  OK: Chip detected");
-  } else {
-    Serial.println("  WARN: Unexpected version (clone or different chip)");
-  }
-
-  byte txCtrl = reader.PCD_ReadRegister(MFRC522::TxControlReg);
-  Serial.print("  TxControlReg: 0x"); Serial.println(txCtrl, HEX);
-  bool ant1 = txCtrl & 0x01;
-  bool ant2 = txCtrl & 0x02;
-  Serial.print("  Antenna1: "); Serial.println(ant1 ? "ON" : "OFF");
-  Serial.print("  Antenna2: "); Serial.println(ant2 ? "ON" : "OFF");
-  if (!ant1 && !ant2) {
-    Serial.println("  ERROR: Antenna off - check 27.12MHz oscillator");
-  }
-
-  byte tMode = reader.PCD_ReadRegister(MFRC522::TModeReg);
-  byte prescaler = reader.PCD_ReadRegister(MFRC522::TPrescalerReg);
-  unsigned long timeoutUs = (unsigned long)((tMode & 0x0F) << 12) | ((unsigned long)prescaler << 8);
-  Serial.print("  Timeout config: 0x"); Serial.print(tMode, HEX); Serial.print(" / 0x"); Serial.println(prescaler, HEX);
-
-  if (reader.PICC_IsNewCardPresent()) {
-    Serial.println("  Card detected in antenna field");
-    bool readOk = false;
-    for (int attempt = 1; attempt <= 2; attempt++) {
-      delay(5);
-      if (reader.PICC_ReadCardSerial()) {
-        Serial.print("  UID: "); Serial.println(uidToString(&reader.uid));
-        readOk = true;
-        break;
-      }
-      Serial.print("  Read attempt "); Serial.print(attempt); Serial.println(" failed");
-    }
-    if (!readOk) {
-      Serial.println("  Card present but serial read failed");
-      byte err = reader.PCD_ReadRegister(MFRC522::ErrorReg);
-      Serial.print("  ErrorReg: 0x"); Serial.println(err, HEX);
-      if (err & 0x08) Serial.println("  -> CollErr: collision/multiple cards?");
-      if (err & 0x04) Serial.println("  -> CRCErr");
-      if (err & 0x02) Serial.println("  -> ParityErr");
-      if (err & 0x10) Serial.println("  -> BufferOvfl");
-      Serial.println("  Try: single card, 5-15mm from antenna, keep still");
-    }
-    reader.PICC_HaltA();
-    reader.PCD_StopCrypto1();
-  } else {
-    Serial.println("  No card detected (place card close to antenna)");
-  }
-  Serial.println();
 }
 
 bool httpPost(const String& url, const String& body, int& outCode) {
@@ -348,6 +288,11 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
   return httpPost(url, body, code);
 }
 
+void triggerBuzzer() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  buzzerEndTime = millis() + BUZZER_DURATION_MS;
+}
+
 void lockAll() {
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
@@ -377,6 +322,7 @@ void unlockOut() {
   outUnlocked = true;
   outUnlockTime = millis();
   showStatus("UNLOCK OUT", "Relay M2 active");
+  triggerBuzzer();
 }
 
 void unlockIn() {
@@ -384,6 +330,7 @@ void unlockIn() {
   inUnlocked = true;
   inUnlockTime = millis();
   showStatus("UNLOCK IN", "Relay M1 active");
+  triggerBuzzer();
 }
 
 bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastScanTimeRef) {
@@ -393,22 +340,8 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   }
 
   if (!reader.PICC_IsNewCardPresent()) return false;
-
-  bool readOk = false;
-  for (int attempt = 1; attempt <= 3; attempt++) {
-    delay(attempt == 1 ? 10 : 5);
-    if (reader.PICC_ReadCardSerial()) {
-      readOk = true;
-      break;
-    }
-    if (DEBUG_SERIAL) {
-      Serial.print("Read attempt "); Serial.print(attempt); Serial.println(" failed");
-    }
-  }
-
-  if (!readOk) {
-    if (DEBUG_SERIAL) Serial.println("Card read failed after retries");
-    reader.PICC_HaltA();
+  if (!reader.PICC_ReadCardSerial()) {
+    if (DEBUG_SERIAL) Serial.println("Card read failed");
     return false;
   }
 
@@ -426,19 +359,21 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   } else {
     bool isAdmin = checkAdminByApi(uid);
 
-    if (isAdmin) {
-      adminUid = uid;
-      postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
-      showStatus("Admin Access", "Open dashboard");
-    } else {
-      bool registered = checkRegisteredUser(uid);
-      if (registered) {
-        showStatus("Registered Card", "Access logged");
-      } else {
-        postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
-        showStatus("New Card", "Go Register");
-      }
-    }
+     if (isAdmin) {
+       adminUid = uid;
+       postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
+       showStatus("Admin Access", "Open dashboard");
+       triggerBuzzer();
+     } else {
+       bool registered = checkRegisteredUser(uid);
+       if (registered) {
+         showStatus("Registered Card", "Access logged");
+         triggerBuzzer();
+       } else {
+         postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
+         showStatus("New Card", "Go Register");
+       }
+     }
   }
 
   logScan(uid, direction, adminUid);
@@ -464,7 +399,7 @@ void setup() {
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
     Serial.print("API root: "); Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, TEST_READERS, RESET_URL");
+    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
   pinMode(SS_PIN_IN, OUTPUT);
@@ -476,6 +411,9 @@ void setup() {
   pinMode(RELAY_M2, OUTPUT);
   digitalWrite(RELAY_M1, HIGH);
   digitalWrite(RELAY_M2, HIGH);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -498,9 +436,10 @@ void setup() {
   Serial.println("RC522 IN reader ready");
   Serial.println("RC522 OUT reader ready");
   if (DEBUG_SERIAL) {
-    Serial.println("=== Reader Diagnostics (boot) ===");
-    debugReader("IN", mfrc522In);
-    debugReader("OUT", mfrc522Out);
+    byte v1 = mfrc522In.PCD_ReadRegister(MFRC522::VersionReg);
+    byte v2 = mfrc522Out.PCD_ReadRegister(MFRC522::VersionReg);
+    Serial.print("RC522 IN version: 0x"); Serial.println(v1, HEX);
+    Serial.print("RC522 OUT version: 0x"); Serial.println(v2, HEX);
   }
 
   lockAll();
@@ -515,6 +454,10 @@ void loop() {
   }
   if (outUnlocked && (millis() - outUnlockTime >= UNLOCK_TIMEOUT)) {
     lockOut();
+  }
+  if (buzzerEndTime > 0 && millis() >= buzzerEndTime) {
+    digitalWrite(BUZZER_PIN, LOW);
+    buzzerEndTime = 0;
   }
 
   handleScan(mfrc522In, "IN", inLastScanTime);
