@@ -9,22 +9,22 @@ if ($admin_uid_filter === '') {
 
 $baseSql = "SELECT uid, name, student_id, NULL AS faculty_id, NULL AS staff_id,
          course, school_year, section, NULL AS department,
-        NULL AS email, NULL AS phone, NULL AS purpose, NULL AS valid_until, 'student' AS role
+        NULL AS email, NULL AS phone, NULL AS purpose, NULL AS valid_until, 'student' AS role, photo
      FROM students
      UNION ALL
      SELECT uid, name, NULL, faculty_id, NULL,
          NULL, NULL, NULL, department,
-        NULL AS email, NULL AS phone, NULL, NULL, 'faculty' AS role
+        NULL AS email, NULL AS phone, NULL, NULL, 'faculty' AS role, photo
      FROM faculty
      UNION ALL
      SELECT uid, name, NULL, NULL, staff_id,
          NULL, NULL, NULL, department,
-        NULL AS email, NULL AS phone, NULL, NULL, 'staff' AS role
+        NULL AS email, NULL AS phone, NULL, NULL, 'staff' AS role, photo
      FROM staff
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL,
          NULL, NULL, NULL, NULL,
-        NULL AS email, NULL AS phone, purpose, valid_until, 'visitor' AS role
+        NULL AS email, NULL AS phone, purpose, valid_until, 'visitor' AS role, photo
      FROM visitors";
 
 if ($admin_uid_filter) {

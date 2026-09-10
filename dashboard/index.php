@@ -22,10 +22,10 @@ if (!isset($_SESSION['admin_uid'])) {
       --border-color: #cbd5e1;
       --accent-color: #1d4ed8;
       --accent-color-light: #dbeafe;
-      --shadow-color: rgba(15, 27, 52, 0.10);
+      --shadow-color: rgba(56, 189, 248, 0.35);
       --danger-color: #dc2626;
       --danger-bg: #fef2f2;
-      --sidebar-bg: #ffffff;
+      --sidebar-bg: #e0f2fe;
       --sidebar-accent: #1d4ed8;
       --sidebar-ink: #0f172a;
       --sidebar-hover: rgba(29, 78, 216, 0.08);
@@ -139,7 +139,7 @@ if (!isset($_SESSION['admin_uid'])) {
 
     .card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 12px 24px rgba(15, 27, 52, 0.12);
+      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.4);
     }
 
     .card .value {
@@ -191,7 +191,7 @@ if (!isset($_SESSION['admin_uid'])) {
       width: 280px;
       background: #fff;
       border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.35);
       overflow: hidden;
       border: 1px solid #e0e0e0;
       font-family: "IBM Plex Sans", sans-serif;
@@ -524,6 +524,10 @@ if (!isset($_SESSION['admin_uid'])) {
                 <label>Name</label>
                 <input id="viewName" disabled />
               </div>
+              <div class="field">
+                <label>Photo</label>
+                <img id="viewPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #e0e0e0;" />
+              </div>
               <div class="field role-field role-student">
                 <label>Student ID</label>
                 <input id="viewStudentId" disabled />
@@ -579,7 +583,7 @@ if (!isset($_SESSION['admin_uid'])) {
           </div>
 
           <div id="registerFormWrap" class="hidden" style="margin-top: 16px;">
-            <form id="registerForm">
+            <form id="registerForm" enctype="multipart/form-data">
               <div class="form-grid">
                 <div class="field">
                   <label for="regUid">UID</label>
@@ -641,6 +645,11 @@ if (!isset($_SESSION['admin_uid'])) {
                     <option value="staff">Staff</option>
                     <option value="visitor">Visitor</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label for="regPhoto">Photo</label>
+                  <input id="regPhoto" name="photo" type="file" accept="image/*" />
+                  <img id="regPhotoPreview" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="Preview" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;margin-top:6px;display:block;" />
                 </div>
               </div>
               <div class="form-actions">
@@ -848,6 +857,8 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const regStudentIdEl = document.getElementById('regStudentId');
     const regFacultyIdEl = document.getElementById('regFacultyId');
     const regStaffIdEl = document.getElementById('regStaffId');
+    const regPhotoEl = document.getElementById('regPhoto');
+    const regPhotoPreviewEl = document.getElementById('regPhotoPreview');
     const viewUidEl = document.getElementById('viewUid');
     const viewNameEl = document.getElementById('viewName');
     const viewStudentIdEl = document.getElementById('viewStudentId');
@@ -862,8 +873,15 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const viewDepartmentEl = document.getElementById('viewDepartment');
     const viewPurposeEl = document.getElementById('viewPurpose');
     const viewValidUntilEl = document.getElementById('viewValidUntil');
+    const viewPhotoEl = document.getElementById('viewPhoto');
+    viewPhotoEl.onerror = function() {
+      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+    };
     const idCardDisplayEl = document.getElementById('idCardDisplay');
     const idCardPhotoEl = document.getElementById('idCardPhoto');
+    idCardPhotoEl.onerror = function() {
+      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+    };
     const idCardNameEl = document.getElementById('idCardName');
     const idCardRoleEl = document.getElementById('idCardRole');
     const idCardIdEl = document.getElementById('idCardId');
@@ -894,6 +912,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     let roleChart = null;
     let directionChart = null;
     let chartHistoryData = [];
+    let resizedPhotoBlob = null;
     const chartColors = {
       studentIn: '#1d4ed8',
       studentOut: '#dc2626',
@@ -905,6 +924,25 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       inTotal: '#1d4ed8',
       outTotal: '#dc2626'
     };
+
+    function resizePhotoTo360(file, callback) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 360;
+          canvas.height = 360;
+          ctx.drawImage(img, 0, 0, 360, 360);
+          canvas.toBlob(function(blob) {
+            callback(blob);
+          }, 'image/jpeg', 0.9);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
 
     if (window.Chart) {
       Chart.defaults.font.family = '"Space Grotesk", "Segoe UI", sans-serif';
@@ -1511,6 +1549,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       viewPhoneEl.value = user.phone || '';
       viewEmailEl.value = user.email || '';
       viewRoleEl.value = user.role || '';
+      if (user.photo) {
+        viewPhotoEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
+      } else {
+        viewPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      }
       registerStatusEl.textContent = '';
     }
 
@@ -1550,6 +1593,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       document.getElementById('regRole').value = user.role || 'student';
       updateRoleFields(user.role || 'student');
       registerStatusEl.textContent = 'Editing registered student';
+      if (user.photo) {
+        regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
+      } else {
+        regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      }
       setActiveTab('registerTab');
     }
 
@@ -1748,7 +1796,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const user = data.data;
           
           if (user.photo) {
-            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/' + user.photo;
+            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
           } else {
              idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
           }
@@ -2047,17 +2095,31 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       registerStatusEl.textContent = 'Saving...';
 
       const formData = new FormData(registerFormEl);
-      try {
-        const res = await fetch('../api/users/register_user.php', {
-          method: 'POST',
-          body: new URLSearchParams(formData)
+      const photoFile = formData.get('photo');
+      if (photoFile && photoFile.size > 0) {
+        resizePhotoTo360(photoFile, function(blob) {
+          const resizedFile = new File([blob], photoFile.name, { type: 'image/jpeg' });
+          formData.set('photo', resizedFile);
+          submitRegistration(formData);
         });
-        const data = await res.json();
+      } else {
+        formData.delete('photo');
+        submitRegistration(formData);
+      }
+    });
+
+    function submitRegistration(formData) {
+      fetch('../api/users/register_user.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
         if (data.ok) {
           registerStatusEl.textContent = 'Saved';
-          // clear the form inputs so previous values don't remain
           const savedUid = regUidEl.value;
           registerFormEl.reset();
+          regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
           regUidEl.readOnly = false;
           loadUsers();
           loadScans();
@@ -2065,14 +2127,29 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         } else {
           registerStatusEl.textContent = data.error || 'Save failed';
         }
-      } catch (err) {
+      })
+      .catch(err => {
         registerStatusEl.textContent = 'Network error';
-      }
-    });
+      });
+    }
 
     document.getElementById('regRole').addEventListener('change', (event) => {
       updateRoleFields(event.target.value);
     });
+
+    if (regPhotoEl && regPhotoPreviewEl) {
+      regPhotoEl.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          resizePhotoTo360(file, function(blob) {
+            const url = URL.createObjectURL(blob);
+            regPhotoPreviewEl.src = url;
+          });
+        } else {
+          regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+        }
+      });
+    }
 
     editRegisteredEl.addEventListener('click', () => {
       showEditFormFromUser(currentRegisteredUser);

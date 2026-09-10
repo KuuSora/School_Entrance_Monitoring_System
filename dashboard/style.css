@@ -12,7 +12,7 @@
   --accent-dark: #1e40af;
   --card: #ffffff;
   --stroke: #cbd5e1;
-  --sidebar-bg: #ffffff;
+  --sidebar-bg: #e0f2fe;
   --sidebar-ink: #0f172a;
   --sidebar-accent: #1d4ed8;
   --sidebar-hover: rgba(29, 78, 216, 0.08);
@@ -71,7 +71,7 @@ body.dark-mode {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--stroke);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
   z-index: 50;
 }
 
@@ -90,7 +90,7 @@ body.dark-mode .topbar {
   width: auto;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(15, 27, 52, 0.08));
+  filter: drop-shadow(0 1px 2px rgba(56, 189, 248, 0.25));
 }
 
 .dark-mode .topbar-logo {
@@ -113,8 +113,9 @@ body.dark-mode .topbar {
 
 .admin-name {
   font-size: 13px;
-  color: var(--ink-muted);
+  color: #ffffff;
   font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
 .theme-switcher {
@@ -348,7 +349,7 @@ body.dark-mode .nav-brand {
   background: var(--card);
   border: 1px solid var(--stroke);
   border-radius: 16px;
-  box-shadow: 0 5px 14px rgba(15, 27, 52, 0.08), 0 1px 3px rgba(15, 27, 52, 0.05);
+  box-shadow: 0 5px 14px rgba(56, 189, 248, 0.35), 0 1px 3px rgba(56, 189, 248, 0.2);
 }
 
 body.dark-mode .section,
@@ -408,7 +409,7 @@ body.dark-mode #registerFormWrap {
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(15, 27, 52, 0.12);
+      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.4);
 }
 
 .card h3 {
@@ -512,7 +513,7 @@ body.dark-mode .card.alert-card .list li .badge {
   max-height: calc(100vh - var(--topbar-height) - 170px);
   border: none;
   border-radius: 16px;scrollbar-width: thin;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35), 0 1px 3px rgba(56, 189, 248, 0.2);
   z-index: auto;
   transition: none;
   overflow: hidden;
@@ -614,7 +615,7 @@ body.dark-mode .top-row > .panel-fixed {
   background: var(--card);
   border: 1px solid var(--stroke);
   border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(15, 27, 52, 0.06);
+  box-shadow: 0 3px 10px rgba(56, 189, 248, 0.3);
   overflow: hidden;
 }
 
@@ -663,7 +664,7 @@ body.dark-mode .overview-card {
   background: #ffffff;
   border: 1px solid var(--stroke);
   border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(15, 27, 52, 0.06);
+  box-shadow: 0 3px 10px rgba(56, 189, 248, 0.3);
 }
 
 .stat-item-alert {
@@ -844,7 +845,7 @@ body.dark-mode .chart-canvas {
   height: 280px;
   background: var(--card);
   border-top: 10px solid var(--stroke);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 20px rgba(56, 189, 248, 0.3);
   display: flex;
   flex-direction: column;
   z-index: 40;
@@ -1471,7 +1472,7 @@ body.dark-mode #registerFormWrap {
   min-height: 520px;
   background: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 15px 40px rgba(56, 189, 248, 0.35);
   overflow: hidden;
   border: 1px solid #e0e0e0;
   font-family: "IBM Plex Sans", sans-serif;

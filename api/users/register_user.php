@@ -73,6 +73,24 @@ $notes = isset($_POST['notes']) ? trim($_POST['notes']) : '';
 $role = isset($_POST['role']) ? trim($_POST['role']) : 'student';
 $validUntil = $validUntil === '' ? null : $validUntil;
 
+$photoFileName = null;
+if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+    $uploadDir = __DIR__ . '/../../uploads/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    if (in_array($ext, $allowed, true)) {
+        $safeExt = in_array($ext, ['jpeg', 'jpg'], true) ? 'jpg' : $ext;
+        $photoFileName = preg_replace('/[^A-Za-z0-9_\-]/', '', $uid) . '_' . time() . '.' . $safeExt;
+        $destination = $uploadDir . $photoFileName;
+        if (!move_uploaded_file($_FILES['photo']['tmp_name'], $destination)) {
+            $photoFileName = null;
+        }
+    }
+}
+
 if ($uid === '' || $name === '') {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Missing required fields (uid, name)']);
@@ -98,6 +116,7 @@ if ($role === 'student') {
     $hasEmail = tableHasColumn($mysqli, 'students', 'email');
     $hasPhone = tableHasColumn($mysqli, 'students', 'phone');
     $hasNotes = tableHasColumn($mysqli, 'students', 'notes');
+    $hasPhoto = tableHasColumn($mysqli, 'students', 'photo');
     $baseColumns = ['uid', 'name', 'student_id', 'course', 'school_year', 'section'];
     $baseValues = [
         'uid' => $uid,
@@ -109,14 +128,17 @@ if ($role === 'student') {
         'email' => $email,
         'phone' => $phone,
         'notes' => $notes,
+        'photo' => $photoFileName,
     ];
     if ($hasEmail) $baseColumns[] = 'email';
     if ($hasPhone) $baseColumns[] = 'phone';
     if ($hasNotes) $baseColumns[] = 'notes';
+    if ($hasPhoto) $baseColumns[] = 'photo';
     $updatableColumns = array_values(array_intersect(['name', 'student_id', 'course', 'school_year', 'section'], $baseColumns));
     if ($hasEmail) $updatableColumns[] = 'email';
     if ($hasPhone) $updatableColumns[] = 'phone';
     if ($hasNotes) $updatableColumns[] = 'notes';
+    if ($hasPhoto) $updatableColumns[] = 'photo';
     $ok = insertOrUpdateRole($mysqli, 'students', $baseColumns, $baseValues, $updatableColumns);
 } else if ($role === 'faculty') {
     if ($facultyId === '') {
@@ -127,6 +149,7 @@ if ($role === 'student') {
     $hasEmail = tableHasColumn($mysqli, 'faculty', 'email');
     $hasPhone = tableHasColumn($mysqli, 'faculty', 'phone');
     $hasNotes = tableHasColumn($mysqli, 'faculty', 'notes');
+    $hasPhoto = tableHasColumn($mysqli, 'faculty', 'photo');
     $baseColumns = ['uid', 'name', 'faculty_id', 'department'];
     $baseValues = [
         'uid' => $uid,
@@ -136,14 +159,17 @@ if ($role === 'student') {
         'email' => $email,
         'phone' => $phone,
         'notes' => $notes,
+        'photo' => $photoFileName,
     ];
     if ($hasEmail) $baseColumns[] = 'email';
     if ($hasPhone) $baseColumns[] = 'phone';
     if ($hasNotes) $baseColumns[] = 'notes';
+    if ($hasPhoto) $baseColumns[] = 'photo';
     $updatableColumns = array_values(array_intersect(['name', 'faculty_id', 'department'], $baseColumns));
     if ($hasEmail) $updatableColumns[] = 'email';
     if ($hasPhone) $updatableColumns[] = 'phone';
     if ($hasNotes) $updatableColumns[] = 'notes';
+    if ($hasPhoto) $updatableColumns[] = 'photo';
     $ok = insertOrUpdateRole($mysqli, 'faculty', $baseColumns, $baseValues, $updatableColumns);
 } else if ($role === 'staff') {
     if ($staffId === '') {
@@ -154,6 +180,7 @@ if ($role === 'student') {
     $hasEmail = tableHasColumn($mysqli, 'staff', 'email');
     $hasPhone = tableHasColumn($mysqli, 'staff', 'phone');
     $hasNotes = tableHasColumn($mysqli, 'staff', 'notes');
+    $hasPhoto = tableHasColumn($mysqli, 'staff', 'photo');
     $baseColumns = ['uid', 'name', 'staff_id', 'department'];
     $baseValues = [
         'uid' => $uid,
@@ -163,19 +190,23 @@ if ($role === 'student') {
         'email' => $email,
         'phone' => $phone,
         'notes' => $notes,
+        'photo' => $photoFileName,
     ];
     if ($hasEmail) $baseColumns[] = 'email';
     if ($hasPhone) $baseColumns[] = 'phone';
     if ($hasNotes) $baseColumns[] = 'notes';
+    if ($hasPhoto) $baseColumns[] = 'photo';
     $updatableColumns = array_values(array_intersect(['name', 'staff_id', 'department'], $baseColumns));
     if ($hasEmail) $updatableColumns[] = 'email';
     if ($hasPhone) $updatableColumns[] = 'phone';
     if ($hasNotes) $updatableColumns[] = 'notes';
+    if ($hasPhoto) $updatableColumns[] = 'photo';
     $ok = insertOrUpdateRole($mysqli, 'staff', $baseColumns, $baseValues, $updatableColumns);
 } else if ($role === 'visitor') {
     $hasEmail = tableHasColumn($mysqli, 'visitors', 'email');
     $hasPhone = tableHasColumn($mysqli, 'visitors', 'phone');
     $hasNotes = tableHasColumn($mysqli, 'visitors', 'notes');
+    $hasPhoto = tableHasColumn($mysqli, 'visitors', 'photo');
     $baseColumns = ['uid', 'name', 'purpose', 'valid_until'];
     $baseValues = [
         'uid' => $uid,
@@ -185,14 +216,17 @@ if ($role === 'student') {
         'email' => $email,
         'phone' => $phone,
         'notes' => $notes,
+        'photo' => $photoFileName,
     ];
     if ($hasEmail) $baseColumns[] = 'email';
     if ($hasPhone) $baseColumns[] = 'phone';
     if ($hasNotes) $baseColumns[] = 'notes';
+    if ($hasPhoto) $baseColumns[] = 'photo';
     $updatableColumns = array_values(array_intersect(['name', 'purpose', 'valid_until'], $baseColumns));
     if ($hasEmail) $updatableColumns[] = 'email';
     if ($hasPhone) $updatableColumns[] = 'phone';
     if ($hasNotes) $updatableColumns[] = 'notes';
+    if ($hasPhoto) $updatableColumns[] = 'photo';
     $ok = insertOrUpdateRole($mysqli, 'visitors', $baseColumns, $baseValues, $updatableColumns);
 } else {
     http_response_code(400);
