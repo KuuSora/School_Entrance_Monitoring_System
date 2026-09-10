@@ -217,12 +217,12 @@ if (!isset($_SESSION['admin_uid'])) {
     }
     .id-card-photo img { width: 100%; height: 100%; object-fit: cover; }
     .id-card-name {
-      font-size: 20px;
+      font-size: 25px;
       font-weight: 700;
-      color: #333;
+      color: #000000;
+      text-transform: uppercase;
       margin-bottom: 4px;
     }
-    .id-card-name.yellogreen { color: #9ACD32; }
     .id-card-info { font-size: 14px; color: #555; margin-bottom: 2px; }
   </style>
   <style>
@@ -1801,8 +1801,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
              idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
           }
           
-          idCardNameEl.textContent = user.name || 'Unknown';
-          idCardNameEl.classList.add('yellogreen'); // Add the requested color class
+           idCardNameEl.textContent = (user.name || 'Unknown').toUpperCase();
 
           idCardRoleEl.textContent = (user.role || '').charAt(0).toUpperCase() + (user.role || '').slice(1);
 

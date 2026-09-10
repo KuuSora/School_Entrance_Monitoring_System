@@ -1505,9 +1505,9 @@ body.dark-mode #registerFormWrap {
 
 .id-card-photo-area {
   position: absolute;
-  top: 70px;
+  top: 53px;
   left: 445px;
-  width: 235px;
+  width: 230px;
   height:  275px;
   border-radius: 8px;
   overflow: hidden;
@@ -1526,24 +1526,23 @@ body.dark-mode #registerFormWrap {
 
 .id-card-info-area {
   position: absolute;
-  top: 160px;
-  left: 20px;
+  top: 140px;
+  left: 40px;
   z-index: 2;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 120px;
 }
 
 .id-card-name {
   font-size: 48px;
   font-weight: 700;
-  color: #ffffff;
+  color: #000000;
+  text-transform: uppercase;
   margin: 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+  text-shadow: 0 0 4px rgba(255,255,255,0.9);
 }
-
-.id-card-name.yellogreen { color: #9acd32; }
 
 .id-card-role {
   font-size: 16px;
@@ -1562,8 +1561,8 @@ body.dark-mode #registerFormWrap {
 }
 
 .id-card-id {
-  margin-top: 190px;
-  margin-left: 520px;
+  margin-top: 170px;
+  margin-left: 450px;
   font-size: 14px;
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
