@@ -482,6 +482,7 @@ body.dark-mode .card.alert-card .list li .badge {
   align-items: stretch;
   gap: 16px;
   min-width: 0;
+  perspective: 1000px;
 }
 
 .id-card-container > .stats-column {
