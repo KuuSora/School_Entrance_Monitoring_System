@@ -15,7 +15,7 @@ if (!isset($_SESSION['admin_uid'])) {
   <style>
     :root {
       --bg-color: #f8fbff;
-      --bg-gradient: linear-gradient(135deg, #f8fbff 0%, #ffffff 75%);
+      --bg-gradient: linear-gradient(135deg, #f8fbff 0%, #1d4ed8 100%));
       --card-bg: #ffffff;
       --text-color: #0f172a;
       --muted-color: #64748b;
@@ -62,7 +62,7 @@ if (!isset($_SESSION['admin_uid'])) {
     }
 
     .topbar {
-      background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+      background: linear-gradient(132deg, #dbfef3 0%,#1d4ed8 100%);
       border-bottom: 1px solid var(--border-color);
       box-shadow: 0 2px 8px var(--shadow-color);
     }
@@ -357,41 +357,41 @@ if (!isset($_SESSION['admin_uid'])) {
                   </div>
                 </div>
                 <div id="idCardPlaceholder" class="id-card-placeholder hidden">Waiting for next scan...</div>
+              <div class="stats-column">
+                <div class="stats-cards">
+                  <div class="stat-item stat-today" data-tab="dailyLogsTab" role="button" tabindex="0">
+                    <span class="stat-label">Today Scans</span>
+                    <span class="stat-value" id="todayTotal">-</span>
+                    <span class="stat-meta" id="todayMeta">In: - | Out: -</span>
+                  </div>
+                  <div class="stat-item stat-inside" data-tab="dashboardTab" role="button" tabindex="0">
+                    <span class="stat-label">Inside Now</span>
+                    <span class="stat-value" id="insideTotal">-</span>
+                    <span class="stat-meta" id="insideMeta">Students: - | Faculty: -</span>
+                  </div>
+                  <div class="stat-item stat-item-alert stat-suspicious" data-tab="reportsTab" role="button" tabindex="0">
+                    <span class="stat-label">Suspicious</span>
+                    <span class="stat-value" id="suspiciousCount">-</span>
+                    <span class="stat-meta" id="suspiciousMeta">24h</span>
+                  </div>
+                  <div class="overview-card card-week" data-tab="reportsTab" role="button" tabindex="0">
+                    <h3>Week</h3>
+                    <div class="value" id="weekTotal">-</div>
+                    <div class="meta" id="weekMeta">Avg/day: -</div>
+                  </div>
+                  <div class="overview-card card-month" data-tab="reportsTab" role="button" tabindex="0">
+                    <h3>Month</h3>
+                    <div class="value" id="monthTotal">-</div>
+                    <div class="meta" id="monthMeta">Best day: -</div>
+                  </div>
+                  <div class="overview-card card-active" data-tab="personalActivityTab" role="button" tabindex="0">
+                    <h3>Active</h3>
+                    <div class="value" id="activeStudents">-</div>
+                    <div class="meta">7d</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="stats-column">
-              <div class="stats-cards">
-                <div class="stat-item stat-today">
-                  <span class="stat-label">Today Scans</span>
-                  <span class="stat-value" id="todayTotal">-</span>
-                  <span class="stat-meta" id="todayMeta">In: - | Out: -</span>
-                </div>
-                <div class="stat-item stat-inside">
-                  <span class="stat-label">Inside Now</span>
-                  <span class="stat-value" id="insideTotal">-</span>
-                  <span class="stat-meta" id="insideMeta">Students: - | Faculty: -</span>
-                </div>
-                <div class="stat-item stat-item-alert stat-suspicious">
-                  <span class="stat-label">Suspicious</span>
-                  <span class="stat-value" id="suspiciousCount">-</span>
-                  <span class="stat-meta" id="suspiciousMeta">24h</span>
-                </div>
-                <div class="overview-card card-week">
-                  <h3>Week</h3>
-                  <div class="value" id="weekTotal">-</div>
-                  <div class="meta" id="weekMeta">Avg/day: -</div>
-                </div>
-                <div class="overview-card card-month">
-                  <h3>Month</h3>
-                  <div class="value" id="monthTotal">-</div>
-                  <div class="meta" id="monthMeta">Best day: -</div>
-                </div>
-                <div class="overview-card card-active">
-                  <h3>Active</h3>
-                  <div class="value" id="activeStudents">-</div>
-                  <div class="meta">7d</div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -446,6 +446,76 @@ if (!isset($_SESSION['admin_uid'])) {
             </div>
           </div>
           <div class="status" id="chartStatus">Loading charts...</div>
+        </section>
+
+        <section class="section">
+          <div class="storage-heading">
+            <div>
+              <h1>Database Storage</h1>
+              <p class="sub">Monitor the space consumed by database tables, including data and indexes.</p>
+            </div>
+            <button type="button" class="btn secondary compact" id="refreshStorageBtn">Refresh</button>
+          </div>
+
+          <div class="storage-summary-grid">
+            <div class="storage-summary-card">
+              <span class="storage-summary-label">Total Used</span>
+              <strong class="storage-summary-value" id="storageTotalBytes">-</strong>
+              <span class="storage-summary-meta" id="storageTotalMeta">Loading...</span>
+            </div>
+            <div class="storage-summary-card">
+              <span class="storage-summary-label">Data</span>
+              <strong class="storage-summary-value storage-data-value" id="storageDataBytes">-</strong>
+              <span class="storage-summary-meta" id="storageDataMeta">-</span>
+            </div>
+            <div class="storage-summary-card">
+              <span class="storage-summary-label">Indexes</span>
+              <strong class="storage-summary-value storage-index-value" id="storageIndexBytes">-</strong>
+              <span class="storage-summary-meta" id="storageIndexMeta">-</span>
+            </div>
+            <div class="storage-summary-card">
+              <span class="storage-summary-label">Tables</span>
+              <strong class="storage-summary-value" id="storageTableCount">-</strong>
+              <span class="storage-summary-meta" id="storageRowsMeta">-</span>
+            </div>
+          </div>
+
+          <div class="storage-layout">
+            <div class="chart-card storage-chart-card">
+              <div class="chart-header">
+                <h3>Storage by Table</h3>
+                <span class="chart-sub">Data and indexes</span>
+              </div>
+              <div class="chart-canvas storage-chart-canvas">
+                <canvas id="storageChart"></canvas>
+              </div>
+              <div class="status storage-status" id="storageChartStatus">Loading storage...</div>
+            </div>
+
+            <div class="chart-card storage-table-card">
+              <div class="chart-header">
+                <h3>Table Details</h3>
+                <span class="chart-sub">Largest tables first</span>
+              </div>
+              <div class="storage-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Table</th>
+                      <th>Rows</th>
+                      <th>Data</th>
+                      <th>Indexes</th>
+                      <th>Total</th>
+                      <th>Share</th>
+                    </tr>
+                  </thead>
+                  <tbody id="storageRows">
+                    <tr><td colspan="6">Loading table storage...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section class="section">
@@ -688,7 +758,137 @@ if (!isset($_SESSION['admin_uid'])) {
         <section class="section">
           <h1>Daily Logs</h1>
           <p class="sub">Generate daily scan outputs from the API.</p>
-          <div style="display:flex; gap:8px; align-items:center; margin:6px 0 10px 0; flex-wrap:wrap;">
+          <div class="daily-log-search-section">
+            <div class="search-bar">
+              <div class="search-input-wrap">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input id="dailyLogSearchInput" type="search" placeholder="Search by name, UID, Student ID, Faculty ID..." autocomplete="off" />
+              </div>
+              <select id="dailyLogSearchRole" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
+                <option value="">All Types</option>
+                <option value="student">Student</option>
+                <option value="faculty">Faculty</option>
+                <option value="staff">Staff</option>
+                <option value="visitor">Visitor</option>
+              </select>
+              <button type="button" class="btn secondary compact" id="dailyLogSearchBtn">Search</button>
+            </div>
+
+            <div id="dailyLogSearchResults" class="search-results hidden"></div>
+          </div>
+
+          <div id="personPreviewPanel" class="person-preview-section hidden">
+            <div class="person-preview-grid">
+              <div class="person-preview-photo">
+                <img id="previewPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo" />
+              </div>
+              <div class="person-preview-details">
+                <h3 id="previewName">-</h3>
+                <div class="detail-row">
+                  <span class="detail-item"><strong>UID:</strong> <span id="previewUid">-</span></span>
+                  <span class="detail-item"><strong>Role:</strong> <span id="previewRole">-</span></span>
+                  <span class="detail-item" id="previewIdDetail"></span>
+                </div>
+                <div class="detail-row" id="previewExtraDetails"></div>
+              </div>
+              <button type="button" class="btn secondary compact" id="previewCloseBtn">Close</button>
+            </div>
+            <div class="person-preview-history">
+              <h4>Scan History (Last 50 entries)</h4>
+              <div class="panel-table" style="max-height:280px;">
+                <table class="table-compact">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Direction</th>
+                      <th>Admin</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="previewHistoryRows">
+                    <tr><td colspan="5">Loading...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <section class="section admin-history-section" aria-labelledby="adminHistoryTitle">
+            <div class="admin-history-heading">
+              <div>
+                <h2 id="adminHistoryTitle">Admin History</h2>
+                <p class="sub">Search your name or admin UID, then preview and export the scans you processed.</p>
+              </div>
+            </div>
+
+            <div class="admin-history-controls">
+              <div class="field admin-history-search-field">
+                <label for="adminHistorySearch">Profile search</label>
+                <input id="adminHistorySearch" type="search" value="<?php echo htmlspecialchars($_SESSION['admin_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" placeholder="Enter your name or admin UID" autocomplete="off" />
+              </div>
+              <button type="button" class="btn secondary compact admin-history-search-btn" id="adminHistorySearchBtn">Search</button>
+            </div>
+
+            <div id="adminHistoryStatus" class="status" role="status" aria-live="polite"></div>
+
+            <div id="adminHistoryPanel" class="admin-history-panel hidden">
+              <div class="admin-history-profile">
+                <div class="admin-history-avatar" aria-hidden="true">
+                  <span id="adminHistoryInitials">A</span>
+                </div>
+                <div class="admin-history-profile-copy">
+                  <span class="role-badge role-admin">Admin</span>
+                  <h3 id="adminHistoryName">Admin Profile</h3>
+                  <div id="adminHistoryUid" class="admin-history-uid">-</div>
+                  <button type="button" class="btn secondary compact admin-history-profile-btn" id="adminHistoryProfileBtn">View Full Profile</button>
+                </div>
+                <div class="admin-history-summary" aria-label="History summary">
+                  <div><span>Total</span><strong id="adminHistoryTotal">0</strong></div>
+                  <div><span>IN</span><strong id="adminHistoryIn">0</strong></div>
+                  <div><span>OUT</span><strong id="adminHistoryOut">0</strong></div>
+                  <div><span>Suspicious</span><strong id="adminHistorySuspicious">0</strong></div>
+                </div>
+              </div>
+
+              <div class="admin-history-range">
+                <div class="field">
+                  <label for="adminHistoryFrom">From</label>
+                  <input id="adminHistoryFrom" class="daily-report-date" type="date" />
+                </div>
+                <div class="field">
+                  <label for="adminHistoryTo">To</label>
+                  <input id="adminHistoryTo" class="daily-report-date" type="date" />
+                </div>
+                <div class="daily-report-actions admin-history-actions">
+                  <button type="button" class="btn secondary compact" id="adminHistoryPrintBtn">Print</button>
+                  <button type="button" class="btn secondary compact" id="adminHistoryCsvBtn">Download CSV</button>
+                  <button type="button" class="btn secondary compact" id="adminHistoryXlsBtn">Download Excel</button>
+                </div>
+              </div>
+
+              <div class="panel-table admin-history-table-panel">
+                <table class="table-compact">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Direction</th>
+                      <th>UID</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminHistoryRows">
+                    <tr><td colspan="7">No scans found for this date range.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <div style="display:flex; gap:8px; align-items:center; margin:14px 0 10px 0; flex-wrap:wrap;">
             <div class="daily-report-row">
               <label for="dailyReportDate">Daily log</label>
               <input id="dailyReportDate" class="daily-report-date" type="date" />
@@ -702,7 +902,8 @@ if (!isset($_SESSION['admin_uid'])) {
               <span>Only suspicious</span>
             </label>
           </div>
-          <div class="daily-report-actions" style="margin-bottom:10px;">
+
+          <div class="daily-report-actions" style="margin:14px 0 10px;">
             <button type="button" class="btn secondary compact" id="dailyPrintBtn">Print Daily</button>
             <button type="button" class="btn secondary compact" id="dailyCsvBtn">Download CSV</button>
             <button type="button" class="btn secondary compact" id="dailyXlsBtn">Download Excel</button>
@@ -813,6 +1014,50 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
+    <div id="userProfileModal" class="profile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileName">
+      <div class="profile-backdrop" data-close-profile></div>
+      <div class="profile-panel">
+        <button type="button" class="profile-close" id="closeProfileBtn" aria-label="Close profile">&times;</button>
+        <div class="profile-loading" id="profileLoading">Loading profile...</div>
+        <div id="profileContent" class="hidden">
+          <div class="profile-header">
+            <div class="profile-avatar">
+              <img id="profilePhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="Profile photo" />
+            </div>
+            <div class="profile-heading">
+              <span id="profileRole" class="role-badge role-unknown">Unknown</span>
+              <h2 id="profileName">Profile</h2>
+              <div id="profileIdentifier" class="profile-identifier">-</div>
+            </div>
+          </div>
+          <div id="profileDetails" class="profile-details"></div>
+          <div id="profileSummary" class="profile-summary">
+            <div><span>Total Scans</span><strong id="profileTotalScans">-</strong></div>
+            <div><span>IN</span><strong id="profileInScans">-</strong></div>
+            <div><span>OUT</span><strong id="profileOutScans">-</strong></div>
+          </div>
+          <div class="profile-history-heading">
+            <h3>Scan History</h3>
+            <span id="profileHistoryCount" class="chart-sub">-</span>
+          </div>
+          <div class="profile-history-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Direction</th>
+                  <th scope="col">Admin</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Time</th>
+                </tr>
+              </thead>
+              <tbody id="profileHistoryRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="vendor/chart.umd.min.js"></script>
@@ -837,6 +1082,18 @@ if (!isset($_SESSION['admin_uid'])) {
     const roleChartEl = document.getElementById('roleChart');
     const directionChartEl = document.getElementById('directionChart');
     const historyModeEl = document.getElementById('historyMode');
+    const storageChartEl = document.getElementById('storageChart');
+    const storageChartStatusEl = document.getElementById('storageChartStatus');
+    const storageTotalBytesEl = document.getElementById('storageTotalBytes');
+    const storageTotalMetaEl = document.getElementById('storageTotalMeta');
+    const storageDataBytesEl = document.getElementById('storageDataBytes');
+    const storageDataMetaEl = document.getElementById('storageDataMeta');
+    const storageIndexBytesEl = document.getElementById('storageIndexBytes');
+    const storageIndexMetaEl = document.getElementById('storageIndexMeta');
+    const storageTableCountEl = document.getElementById('storageTableCount');
+    const storageRowsMetaEl = document.getElementById('storageRowsMeta');
+    const storageRowsEl = document.getElementById('storageRows');
+    const refreshStorageBtn = document.getElementById('refreshStorageBtn');
     const peakTimesEl = document.getElementById('peakTimes');
     const alertListEl = document.getElementById('alertList');
     const reportAdminFilterEl = document.getElementById('reportAdminFilter');
@@ -886,6 +1143,25 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const idCardRoleEl = document.getElementById('idCardRole');
     const idCardIdEl = document.getElementById('idCardId');
     const idCardPlaceholderEl = document.getElementById('idCardPlaceholder');
+    const userProfileModalEl = document.getElementById('userProfileModal');
+    const profileLoadingEl = document.getElementById('profileLoading');
+    const profileContentEl = document.getElementById('profileContent');
+    const profilePhotoEl = document.getElementById('profilePhoto');
+    profilePhotoEl.onerror = function() {
+      this.onerror = null;
+      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+    };
+    const profileRoleEl = document.getElementById('profileRole');
+    const profileNameEl = document.getElementById('profileName');
+    const profileIdentifierEl = document.getElementById('profileIdentifier');
+    const profileDetailsEl = document.getElementById('profileDetails');
+    const profileSummaryEl = document.getElementById('profileSummary');
+    const profileTotalScansEl = document.getElementById('profileTotalScans');
+    const profileInScansEl = document.getElementById('profileInScans');
+    const profileOutScansEl = document.getElementById('profileOutScans');
+    const profileHistoryCountEl = document.getElementById('profileHistoryCount');
+    const profileHistoryRowsEl = document.getElementById('profileHistoryRows');
+    const closeProfileBtn = document.getElementById('closeProfileBtn');
     const settingsFormEl = document.getElementById('settingsForm');
     const settingsStatusEl = document.getElementById('settingsStatus');
     const settingThemeEl = document.getElementById('settingTheme');
@@ -911,7 +1187,9 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     let historyChart = null;
     let roleChart = null;
     let directionChart = null;
+    let storageChart = null;
     let chartHistoryData = [];
+    let profileRequestToken = 0;
     let resizedPhotoBlob = null;
     const chartColors = {
       studentIn: '#1d4ed8',
@@ -1100,6 +1378,181 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
     function formatCount(value) {
       return Number(value || 0).toLocaleString();
+    }
+
+    function formatBytes(value) {
+      const bytes = Number(value || 0);
+      if (bytes === 0) {
+        return '0 B';
+      }
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+      const unitValue = bytes / Math.pow(1024, unitIndex);
+      return `${unitValue.toFixed(unitValue >= 10 || unitIndex === 0 ? 1 : 2)} ${units[unitIndex]}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function renderStorageChart(tables, totalBytes) {
+      if (!storageChartEl || !window.Chart) {
+        return;
+      }
+      const labels = tables.map(table => table.table_name);
+      const dataValues = tables.map(table => Number(table.data_bytes) || 0);
+      const indexValues = tables.map(table => Number(table.index_bytes) || 0);
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Data',
+            data: dataValues,
+            backgroundColor: '#1d4ed8',
+            borderColor: '#1d4ed8',
+            borderWidth: 0,
+            stack: 'storage'
+          },
+          {
+            label: 'Indexes',
+            data: indexValues,
+            backgroundColor: '#f59e0b',
+            borderColor: '#f59e0b',
+            borderWidth: 0,
+            stack: 'storage'
+          }
+        ]
+      };
+      const options = {
+        indexAxis: 'y',
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, boxHeight: 10 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.dataset.label}: ${formatBytes(context.parsed.x)}`,
+              afterBody: (items) => {
+                if (!items.length) {
+                  return '';
+                }
+                const index = items[0].dataIndex;
+                const total = (dataValues[index] || 0) + (indexValues[index] || 0);
+                const share = totalBytes > 0 ? ((total / totalBytes) * 100).toFixed(1) : '0.0';
+                return [`Total: ${formatBytes(total)}`, `Share: ${share}%`];
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            stacked: true,
+            grid: { color: 'rgba(148, 163, 184, 0.25)' },
+            border: { display: false },
+            ticks: {
+              precision: 0,
+              callback: (value) => formatBytes(value)
+            }
+          },
+          y: {
+            stacked: true,
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              autoSkip: false,
+              font: { size: 11 }
+            }
+          }
+        }
+      };
+
+      if (storageChart) {
+        storageChart.data = data;
+        storageChart.options = options;
+        storageChart.update();
+        return;
+      }
+      storageChart = new Chart(storageChartEl, { type: 'bar', data, options });
+    }
+
+    function renderStorageTable(tables, totalBytes) {
+      if (!storageRowsEl) {
+        return;
+      }
+      if (!tables.length) {
+        storageRowsEl.innerHTML = '<tr><td colspan="6">No database tables found</td></tr>';
+        return;
+      }
+      storageRowsEl.innerHTML = tables.map(table => {
+        const total = Number(table.total_bytes) || 0;
+        const share = totalBytes > 0 ? ((total / totalBytes) * 100).toFixed(1) : '0.0';
+        const rowEstimate = table.rows_are_estimated ? ' title="InnoDB row counts are approximate"' : '';
+        return `<tr>
+          <td><strong>${escapeHtml(table.table_name)}</strong><span class="storage-engine">${escapeHtml(table.engine)}</span></td>
+          <td${rowEstimate}>${formatCount(table.rows)}</td>
+          <td>${formatBytes(table.data_bytes)}</td>
+          <td>${formatBytes(table.index_bytes)}</td>
+          <td><strong>${formatBytes(total)}</strong></td>
+          <td>${share}%</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadStorageStats() {
+      if (!storageChartStatusEl) {
+        return;
+      }
+      storageChartStatusEl.textContent = 'Loading database storage...';
+      try {
+        const url = new URL('../api/system/get_database_storage.php', window.location.href);
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          throw new Error(`Storage request failed with HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!data.ok) {
+          throw new Error(data.error || 'Storage data unavailable');
+        }
+        const tables = Array.isArray(data.tables) ? data.tables : [];
+        const totalBytes = Number(data.total_bytes) || 0;
+        const dataBytes = Number(data.data_bytes) || 0;
+        const indexBytes = Number(data.index_bytes) || 0;
+        const totalRows = Number(data.total_rows) || 0;
+        const tableCount = Number(data.table_count) || 0;
+
+        if (storageTotalBytesEl) storageTotalBytesEl.textContent = formatBytes(totalBytes);
+        if (storageDataBytesEl) storageDataBytesEl.textContent = formatBytes(dataBytes);
+        if (storageIndexBytesEl) storageIndexBytesEl.textContent = formatBytes(indexBytes);
+        if (storageTableCountEl) storageTableCountEl.textContent = formatCount(tableCount);
+        if (storageTotalMetaEl) storageTotalMetaEl.textContent = `${data.database_name || 'Database'} Â· ${formatCount(totalRows)} rows`;
+        if (storageDataMetaEl) storageDataMetaEl.textContent = totalBytes > 0 ? `${((dataBytes / totalBytes) * 100).toFixed(1)}% of total` : '-';
+        if (storageIndexMetaEl) storageIndexMetaEl.textContent = totalBytes > 0 ? `${((indexBytes / totalBytes) * 100).toFixed(1)}% of total` : '-';
+        if (storageRowsMetaEl) storageRowsMetaEl.textContent = tableCount === 1 ? '1 table' : `${formatCount(tableCount)} tables`;
+
+        renderStorageChart(tables, totalBytes);
+        renderStorageTable(tables, totalBytes);
+        storageChartStatusEl.textContent = `Updated ${new Date(data.generated_at || Date.now()).toLocaleString()}`;
+      } catch (err) {
+        storageChartStatusEl.textContent = 'Unable to load database storage';
+        if (storageTotalBytesEl) storageTotalBytesEl.textContent = '-';
+        if (storageDataBytesEl) storageDataBytesEl.textContent = '-';
+        if (storageIndexBytesEl) storageIndexBytesEl.textContent = '-';
+        if (storageTableCountEl) storageTableCountEl.textContent = '-';
+        if (storageTotalMetaEl) storageTotalMetaEl.textContent = 'Unavailable';
+        if (storageDataMetaEl) storageDataMetaEl.textContent = '-';
+        if (storageIndexMetaEl) storageIndexMetaEl.textContent = '-';
+        if (storageRowsMetaEl) storageRowsMetaEl.textContent = '-';
+        if (storageRowsEl) storageRowsEl.innerHTML = '<tr><td colspan="6">Storage data unavailable</td></tr>';
+        console.error('Failed to load database storage:', err);
+      }
     }
 
     function parseBucket(value, mode) {
@@ -1475,8 +1928,12 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           btn.classList.add('active');
         }
       });
+      if (activeTab) {
+        activeTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       if (tabId === 'reportsTab') {
         loadCharts();
+        loadStorageStats();
       }
     }
 
@@ -1549,11 +2006,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       viewPhoneEl.value = user.phone || '';
       viewEmailEl.value = user.email || '';
       viewRoleEl.value = user.role || '';
-      if (user.photo) {
-        viewPhotoEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
-      } else {
-        viewPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-      }
+      viewPhotoEl.src = getProfilePhotoSrc(user.photo);
       registerStatusEl.textContent = '';
     }
 
@@ -1593,11 +2046,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       document.getElementById('regRole').value = user.role || 'student';
       updateRoleFields(user.role || 'student');
       registerStatusEl.textContent = 'Editing registered student';
-      if (user.photo) {
-        regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
-      } else {
-        regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-      }
+      regPhotoPreviewEl.src = getProfilePhotoSrc(user.photo);
       setActiveTab('registerTab');
     }
 
@@ -1692,7 +2141,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           if (adminTagsByUid[user.uid]) {
             const tags = Array.from(adminTagsByUid[user.uid]);
             if (tags.length > 0) {
-              label += ` — ${tags.join(' · ')}`;
+              label += ` â€” ${tags.join(' Â· ')}`;
             }
           }
           const option = document.createElement('option');
@@ -1795,11 +2244,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         if (data.ok && data.data) {
           const user = data.data;
           
-          if (user.photo) {
-            idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/uploads/' + user.photo;
-          } else {
-             idCardPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-          }
+          idCardPhotoEl.src = getProfilePhotoSrc(user.photo);
           
            idCardNameEl.textContent = (user.name || 'Unknown').toUpperCase();
 
@@ -1816,6 +2261,13 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const cardEl = idCardDisplayEl.querySelector('.id-card');
           cardEl.classList.add('highlight');
 
+          cardEl.classList.remove('id-card-popup');
+          void cardEl.offsetWidth;
+          cardEl.classList.add('id-card-popup');
+          cardEl.addEventListener('animationend', () => {
+            cardEl.classList.remove('id-card-popup');
+          }, { once: true });
+
           // TEMPORARY: disable auto-hide for layout editing
           // if (idCardTimeout) clearTimeout(idCardTimeout);
           // setTimeout(() => cardEl.classList.remove('highlight'), 4000);
@@ -1828,6 +2280,200 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         console.error("Failed to fetch user for ID card", err);
         // TEMPORARY: disable auto-hide for layout editing
         // hideIdCard();
+      }
+    }
+
+    function closeUserProfile() {
+      if (!userProfileModalEl) {
+        return;
+      }
+      profileRequestToken += 1;
+      userProfileModalEl.classList.add('hidden');
+    }
+
+    function getProfilePhotoSrc(photo) {
+      if (!photo || !/^[A-Za-z0-9_\-\.]+\.(jpg|jpeg|png|gif|webp)$/i.test(photo)) {
+        return '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      }
+      return '/server/School_Entrance_Monitoring_System/uploads/' + encodeURIComponent(photo);
+    }
+
+    function renderProfileDetails(user) {
+      if (!profileDetailsEl) {
+        return;
+      }
+      const role = String(user.role || 'unknown').toLowerCase();
+      const details = [
+        ['UID', user.uid],
+        ['Name', user.name],
+        ['Role', role],
+      ];
+      if (role === 'student') {
+        details.push(['Student ID', user.student_id]);
+        details.push(['Course', user.course]);
+        details.push(['School Year', user.school_year]);
+        details.push(['Section', user.section]);
+      } else if (role === 'faculty') {
+        details.push(['Faculty ID', user.faculty_id]);
+        details.push(['Department', user.department]);
+      } else if (role === 'staff') {
+        details.push(['Staff ID', user.staff_id]);
+        details.push(['Department', user.department]);
+      } else if (role === 'visitor') {
+        details.push(['Purpose', user.purpose]);
+        details.push(['Valid Until', user.valid_until]);
+      }
+      details.push(['Phone', user.phone]);
+      details.push(['Email', user.email]);
+      details.push(['Notes', user.notes]);
+
+      profileDetailsEl.innerHTML = '';
+      details.forEach(([label, value]) => {
+        if (!value) {
+          return;
+        }
+        const item = document.createElement('div');
+        item.className = 'profile-detail';
+        const labelEl = document.createElement('span');
+        labelEl.textContent = label;
+        const valueEl = document.createElement('strong');
+        valueEl.textContent = value;
+        item.appendChild(labelEl);
+        item.appendChild(valueEl);
+        profileDetailsEl.appendChild(item);
+      });
+    }
+
+    function renderProfileHistory(rows, historyError = false) {
+      if (!profileHistoryRowsEl) {
+        return;
+      }
+      const historyRows = Array.isArray(rows) ? rows : [];
+      const inCount = historyRows.filter(row => String(row.direction).toUpperCase() === 'IN').length;
+      const outCount = historyRows.filter(row => String(row.direction).toUpperCase() === 'OUT').length;
+      if (profileTotalScansEl) profileTotalScansEl.textContent = formatCount(historyRows.length);
+      if (profileInScansEl) profileInScansEl.textContent = formatCount(inCount);
+      if (profileOutScansEl) profileOutScansEl.textContent = formatCount(outCount);
+      if (profileHistoryCountEl) {
+        profileHistoryCountEl.textContent = historyError ? 'History unavailable' : `${formatCount(historyRows.length)} scans`;
+      }
+
+      profileHistoryRowsEl.innerHTML = '';
+      if (historyRows.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.textContent = historyError ? 'Unable to load scan history' : 'No scan history found';
+        row.appendChild(cell);
+        profileHistoryRowsEl.appendChild(row);
+        return;
+      }
+
+      historyRows.forEach(row => {
+        const tr = document.createElement('tr');
+        const idCell = document.createElement('td');
+        idCell.textContent = row.id || '-';
+        const directionCell = document.createElement('td');
+        const direction = String(row.direction || '-').toUpperCase();
+        directionCell.textContent = direction;
+        directionCell.className = direction === 'IN' ? 'profile-direction-in' : direction === 'OUT' ? 'profile-direction-out' : '';
+        const adminCell = document.createElement('td');
+        adminCell.textContent = row.admin_name || row.admin_uid || '-';
+        const statusCell = document.createElement('td');
+        const status = document.createElement('span');
+        status.className = row.suspicious == 1 ? 'badge danger' : 'badge info';
+        status.textContent = row.suspicious == 1 ? 'Suspicious' : 'Normal';
+        statusCell.appendChild(status);
+        const timeCell = document.createElement('td');
+        timeCell.textContent = row.created_at || '-';
+        tr.appendChild(idCell);
+        tr.appendChild(directionCell);
+        tr.appendChild(adminCell);
+        tr.appendChild(statusCell);
+        tr.appendChild(timeCell);
+        profileHistoryRowsEl.appendChild(tr);
+      });
+    }
+
+    async function openUserProfile(uid) {
+      if (!uid || !userProfileModalEl || !profileLoadingEl || !profileContentEl) {
+        return;
+      }
+      const requestToken = ++profileRequestToken;
+      userProfileModalEl.classList.remove('hidden');
+      profileContentEl.classList.add('hidden');
+      profileLoadingEl.classList.remove('hidden');
+      profileLoadingEl.textContent = 'Loading profile...';
+      try {
+        const userRes = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
+        if (requestToken !== profileRequestToken) {
+          return;
+        }
+        if (!userRes.ok) {
+          throw new Error(`User request failed with HTTP ${userRes.status}`);
+        }
+        const userData = await userRes.json();
+        if (requestToken !== profileRequestToken) {
+          return;
+        }
+        if (!userData.ok || !userData.data) {
+          throw new Error(userData.error || 'User not found');
+        }
+
+        const user = userData.data;
+        let historyRows = [];
+        let historyError = false;
+        try {
+          const historyRes = await fetch(`../api/users/get_personal_activity.php?uid=${encodeURIComponent(uid)}&limit=500`);
+          if (historyRes.ok) {
+            const historyData = await historyRes.json();
+            if (historyData.ok && Array.isArray(historyData.data)) {
+              historyRows = historyData.data;
+            } else {
+              historyError = true;
+            }
+          } else {
+            historyError = true;
+          }
+        } catch (err) {
+          historyError = true;
+          console.error('Failed to load profile history:', err);
+        }
+        if (requestToken !== profileRequestToken) {
+          return;
+        }
+        const role = String(user.role || 'unknown').toLowerCase();
+        const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+        const roleClass = ['student', 'faculty', 'staff', 'visitor', 'admin'].includes(role) ? role : 'unknown';
+        const identifier = role === 'admin'
+          ? `Admin UID: ${user.uid || '-'}`
+          : role === 'student' && user.student_id
+          ? `Student ID: ${user.student_id}`
+          : role === 'faculty' && user.faculty_id
+            ? `Faculty ID: ${user.faculty_id}`
+            : role === 'staff' && user.staff_id
+              ? `Staff ID: ${user.staff_id}`
+              : role === 'visitor' && user.purpose
+                ? user.purpose
+                : `UID: ${user.uid || '-'}`;
+
+        profilePhotoEl.src = getProfilePhotoSrc(user.photo);
+        profilePhotoEl.alt = `${user.name || 'User'} profile photo`;
+        profileRoleEl.className = `role-badge role-${roleClass}`;
+        profileRoleEl.textContent = roleLabel;
+        profileNameEl.textContent = user.name || 'Unknown';
+        profileIdentifierEl.textContent = identifier;
+        renderProfileDetails(user);
+        renderProfileHistory(historyRows, historyError);
+        profileLoadingEl.classList.add('hidden');
+        profileContentEl.classList.remove('hidden');
+      } catch (err) {
+        if (requestToken !== profileRequestToken) {
+          return;
+        }
+        profileLoadingEl.textContent = 'Unable to load profile';
+        profileContentEl.classList.add('hidden');
+        console.error('Failed to load user profile:', err);
       }
     }
 
@@ -1869,23 +2515,25 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           if (lastScanId > 0 && row.id > lastScanId && !newestScan) {
             newestScan = row;
           }
-          let userDisplay = name === 'New User'
-            ? `<button onclick="openRegister('${row.uid}', '${row.created_at}')" style="cursor:pointer; padding:4px 8px; border:1px solid #ccc; background:#fff; border-radius:4px;">Register</button>`
-            : `<b>${name}</b>`;
-
+          const uid = row.uid || '';
+          const createdAt = row.created_at || '';
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
-          const suspiciousBadge = row.suspicious == 1 ? '<span class="suspicious-badge">⚠</span>' : '';
-          const trClass = row.suspicious == 1 ? 'class="suspicious-row"' : '';
           const deptDisplay = row.department ? row.department : '';
+          const suspiciousBadge = row.suspicious == 1 ? '<span class="suspicious-badge">âš </span>' : '';
+          const trClass = row.suspicious == 1 ? 'class="suspicious-row"' : '';
+          const profileAttribute = name !== 'New User' && uid ? ` data-profile-uid="${escapeHtml(uid)}"` : '';
+          let userDisplay = name === 'New User'
+            ? `<button type="button" class="scan-register-btn" data-register-uid="${escapeHtml(uid)}" data-register-time="${escapeHtml(createdAt)}">Register</button>`
+            : `<button type="button" class="scan-user-btn"${profileAttribute} title="View profile and history" aria-label="View ${escapeHtml(name)} profile">${escapeHtml(name)}</button>`;
 
           // add data attributes so we can target the newest scan row for animation
-          newHtml += `<tr ${trClass} data-scan-id="${row.id}" data-direction="${dir}">
+          newHtml += `<tr ${trClass}${profileAttribute} data-scan-id="${escapeHtml(row.id)}" data-direction="${escapeHtml(dir)}">
             <td>${userDisplay}${suspiciousBadge}</td>
-            <td>${dir}</td>
-            <td>${row.uid}</td>
-            <td>${deptDisplay}</td>
-            <td>${adminDisplay}</td>
-            <td>${row.created_at}</td>
+            <td>${escapeHtml(dir)}</td>
+            <td>${escapeHtml(uid)}</td>
+            <td>${escapeHtml(deptDisplay)}</td>
+            <td>${escapeHtml(adminDisplay)}</td>
+            <td>${escapeHtml(createdAt)}</td>
           </tr>`;
         });
 
@@ -2077,12 +2725,45 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     });
 
+    if (rowsEl) {
+      rowsEl.addEventListener('click', (event) => {
+        const profileButton = event.target.closest('[data-profile-uid]');
+        if (profileButton) {
+          openUserProfile(profileButton.dataset.profileUid);
+          return;
+        }
+        const registerButton = event.target.closest('[data-register-uid]');
+        if (registerButton) {
+          openRegister(registerButton.dataset.registerUid, registerButton.dataset.registerTime);
+        }
+      });
+    }
+
+    if (closeProfileBtn) {
+      closeProfileBtn.addEventListener('click', closeUserProfile);
+    }
+    document.querySelectorAll('[data-close-profile]').forEach(el => {
+      el.addEventListener('click', closeUserProfile);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeUserProfile();
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-tab][role="button"]')) {
+        event.preventDefault();
+        setActiveTab(event.target.dataset.tab);
+      }
+    });
+
     if (personalUserSelectEl) {
       personalUserSelectEl.addEventListener('change', () => {
         loadUserLogs(personalUserSelectEl.value);
       });
     }
 
+    if (refreshStorageBtn) {
+      refreshStorageBtn.addEventListener('click', loadStorageStats);
+    }
     if (historyModeEl) {
       historyModeEl.addEventListener('change', () => {
         loadCharts();
@@ -2261,6 +2942,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     loadAdmins();
     loadReportAdmins();
     loadAdminStats();
+    loadStorageStats();
     loadScans();
     loadSuspicious();
     showPrompt();
@@ -2305,6 +2987,244 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       dailyXlsBtn.addEventListener('click', () => openDailyReport('xls'));
     }
     refreshDailyPreview();
+
+    const dailyLogSearchInputEl = document.getElementById('dailyLogSearchInput');
+    const dailyLogSearchRoleEl = document.getElementById('dailyLogSearchRole');
+    const dailyLogSearchBtnEl = document.getElementById('dailyLogSearchBtn');
+    const dailyLogSearchResultsEl = document.getElementById('dailyLogSearchResults');
+    const personPreviewPanelEl = document.getElementById('personPreviewPanel');
+    const previewCloseBtnEl = document.getElementById('previewCloseBtn');
+    let searchDebounceTimer = null;
+
+    function getInitials(name) {
+      if (!name) return '?';
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+
+    function getRoleLabel(role) {
+      const labels = { student: 'Student', faculty: 'Faculty', staff: 'Staff', visitor: 'Visitor', admin: 'Admin' };
+      return labels[role] || role || '-';
+    }
+
+    function getRoleBadgeClass(role) {
+      return `role-badge role-${role || 'unknown'}`;
+    }
+
+    function highlightMatch(text, query) {
+      if (!query || !text) return escapeHtml(text);
+      const escaped = escapeHtml(text);
+      const qEscaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${qEscaped})`, 'gi');
+      return escaped.replace(regex, '<span class="search-highlight">$1</span>');
+    }
+
+    async function performDailyLogSearch() {
+      const query = dailyLogSearchInputEl ? dailyLogSearchInputEl.value.trim() : '';
+      const role = dailyLogSearchRoleEl ? dailyLogSearchRoleEl.value : '';
+
+      if (!query) {
+        dailyLogSearchResultsEl.classList.add('hidden');
+        dailyLogSearchResultsEl.innerHTML = '';
+        return;
+      }
+
+      dailyLogSearchResultsEl.classList.remove('hidden');
+      dailyLogSearchResultsEl.innerHTML = '<div class="search-loading">Searching...</div>';
+
+      try {
+        const url = new URL('../api/users/search_users.php', window.location.href);
+        url.searchParams.set('q', query);
+        if (role) url.searchParams.set('role', role);
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          dailyLogSearchResultsEl.innerHTML = '<div class="search-no-results">Search failed</div>';
+          return;
+        }
+        const data = await res.json();
+        if (!data.ok || !Array.isArray(data.data)) {
+          dailyLogSearchResultsEl.innerHTML = '<div class="search-no-results">No results</div>';
+          return;
+        }
+        if (data.data.length === 0) {
+          dailyLogSearchResultsEl.innerHTML = '<div class="search-no-results">No matching records found</div>';
+          return;
+        }
+
+        let html = '';
+        data.data.forEach(user => {
+          let metaText = '';
+          if (user.role === 'student') {
+            if (user.identifier) metaText = `Student ID: ${user.identifier}`;
+            if (user.course) metaText += (metaText ? ' | ' : '') + `Course: ${user.course}`;
+          } else if (user.role === 'faculty') {
+            if (user.identifier) metaText = `Faculty ID: ${user.identifier}`;
+            if (user.department) metaText += (metaText ? ' | ' : '') + user.department;
+          } else if (user.role === 'staff') {
+            if (user.identifier) metaText = `Staff ID: ${user.identifier}`;
+            if (user.department) metaText += (metaText ? ' | ' : '') + user.department;
+          } else if (user.role === 'visitor') {
+            if (user.purpose) metaText = `Purpose: ${user.purpose}`;
+            if (user.email) metaText += (metaText ? ' | ' : '') + user.email;
+          }
+          if (!metaText && user.email) metaText = user.email;
+          if (!metaText && user.phone) metaText = user.phone;
+
+          const photoHtml = user.photo && /^[A-Za-z0-9_\-\.]+\.(jpg|jpeg|png|gif|webp)$/i.test(user.photo)
+            ? `<img src="/server/School_Entrance_Monitoring_System/uploads/${encodeURIComponent(user.photo)}" alt="" onerror="this.parentElement.innerHTML='${getInitials(user.name)}'" />`
+            : getInitials(user.name);
+
+          html += `<div class="search-result-item" data-uid="${escapeHtml(user.uid)}" data-role="${escapeHtml(user.role || '')}">
+            <div class="search-result-avatar">${photoHtml}</div>
+            <div class="search-result-info">
+              <div class="search-result-name">${highlightMatch(user.name, query)}</div>
+              <div class="search-result-meta">${escapeHtml(metaText || '')}</div>
+            </div>
+            <span class="search-result-badge ${getRoleBadgeClass(user.role)}">${getRoleLabel(user.role)}</span>
+          </div>`;
+        });
+        dailyLogSearchResultsEl.innerHTML = html;
+
+        dailyLogSearchResultsEl.querySelectorAll('.search-result-item').forEach(item => {
+          item.addEventListener('click', () => {
+            openPersonPreview(item.dataset.uid);
+            dailyLogSearchResultsEl.classList.add('hidden');
+          });
+        });
+      } catch (err) {
+        dailyLogSearchResultsEl.innerHTML = '<div class="search-no-results">Search error</div>';
+      }
+    }
+
+    if (dailyLogSearchInputEl) {
+      dailyLogSearchInputEl.addEventListener('input', () => {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(performDailyLogSearch, 300);
+      });
+      dailyLogSearchInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+          performDailyLogSearch();
+        }
+      });
+    }
+
+    if (dailyLogSearchBtnEl) {
+      dailyLogSearchBtnEl.addEventListener('click', performDailyLogSearch);
+    }
+
+    if (dailyLogSearchRoleEl) {
+      dailyLogSearchRoleEl.addEventListener('change', () => {
+        const query = dailyLogSearchInputEl ? dailyLogSearchInputEl.value.trim() : '';
+        if (query.length >= 2) performDailyLogSearch();
+      });
+    }
+
+    async function openPersonPreview(uid) {
+      if (!personPreviewPanelEl) return;
+      personPreviewPanelEl.classList.remove('hidden');
+
+      const previewPhotoEl = document.getElementById('previewPhoto');
+      const previewNameEl = document.getElementById('previewName');
+      const previewUidEl = document.getElementById('previewUid');
+      const previewRoleEl = document.getElementById('previewRole');
+      const previewIdDetailEl = document.getElementById('previewIdDetail');
+      const previewExtraDetailsEl = document.getElementById('previewExtraDetails');
+      const previewHistoryRowsEl = document.getElementById('previewHistoryRows');
+
+      if (previewPhotoEl) previewPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      if (previewNameEl) previewNameEl.textContent = 'Loading...';
+      if (previewUidEl) previewUidEl.textContent = uid;
+      if (previewRoleEl) previewRoleEl.textContent = '';
+      if (previewIdDetailEl) previewIdDetailEl.textContent = '';
+      if (previewExtraDetailsEl) previewExtraDetailsEl.innerHTML = '';
+      if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+
+      try {
+        const userRes = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
+        if (!userRes.ok) throw new Error('User fetch failed');
+        const userData = await userRes.json();
+        if (!userData.ok || !userData.data) throw new Error('User not found');
+
+        const user = userData.data;
+        const role = user.role || 'unknown';
+        const roleLabel = getRoleLabel(role);
+
+        if (previewPhotoEl) {
+          previewPhotoEl.src = getProfilePhotoSrc(user.photo);
+          previewPhotoEl.onerror = function() {
+            this.onerror = null;
+            this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+          };
+        }
+        if (previewNameEl) previewNameEl.textContent = user.name || 'Unknown';
+        if (previewRoleEl) {
+          previewRoleEl.className = getRoleBadgeClass(role);
+          previewRoleEl.textContent = roleLabel;
+        }
+        if (previewUidEl) previewUidEl.textContent = user.uid || '-';
+
+        let idLine = '';
+        if (role === 'student' && user.student_id) idLine = `Student ID: ${user.student_id}`;
+        else if (role === 'faculty' && user.faculty_id) idLine = `Faculty ID: ${user.faculty_id}`;
+        else if (role === 'staff' && user.staff_id) idLine = `Staff ID: ${user.staff_id}`;
+        if (idLine && previewIdDetailEl) previewIdDetailEl.innerHTML = `<span class="detail-item"><strong>ID:</strong> ${escapeHtml(idLine)}</span>`;
+
+        let extraHtml = '';
+        if (role === 'student') {
+          if (user.course) extraHtml += `<span class="detail-item"><strong>Course:</strong> ${escapeHtml(user.course)}</span>`;
+          if (user.school_year) extraHtml += `<span class="detail-item"><strong>SY:</strong> ${escapeHtml(user.school_year)}</span>`;
+          if (user.section) extraHtml += `<span class="detail-item"><strong>Section:</strong> ${escapeHtml(user.section)}</span>`;
+        } else if (role === 'faculty' || role === 'staff') {
+          if (user.department) extraHtml += `<span class="detail-item"><strong>Dept:</strong> ${escapeHtml(user.department)}</span>`;
+        } else if (role === 'visitor') {
+          if (user.purpose) extraHtml += `<span class="detail-item"><strong>Purpose:</strong> ${escapeHtml(user.purpose)}</span>`;
+          if (user.valid_until) extraHtml += `<span class="detail-item"><strong>Valid Until:</strong> ${escapeHtml(user.valid_until)}</span>`;
+        }
+        if (user.email) extraHtml += `<span class="detail-item"><strong>Email:</strong> ${escapeHtml(user.email)}</span>`;
+        if (user.phone) extraHtml += `<span class="detail-item"><strong>Phone:</strong> ${escapeHtml(user.phone)}</span>`;
+        if (previewExtraDetailsEl) previewExtraDetailsEl.innerHTML = extraHtml;
+
+        try {
+          const historyRes = await fetch(`../api/users/get_personal_activity.php?uid=${encodeURIComponent(uid)}&limit=50`);
+          if (!historyRes.ok) throw new Error('History fetch failed');
+          const historyData = await historyRes.json();
+          if (!historyData.ok || !Array.isArray(historyData.data)) {
+            if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = '<tr><td colspan="5">Unable to load history</td></tr>';
+          } else if (historyData.data.length === 0) {
+            if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = '<tr><td colspan="5">No scan history found</td></tr>';
+          } else {
+            let hHtml = '';
+            historyData.data.forEach(row => {
+              const direction = String(row.direction || '-').toUpperCase();
+              const adminDisplay = row.admin_name || row.admin_uid || '-';
+              const status = row.suspicious == 1 ? '<span class="badge danger">Suspicious</span>' : '<span class="badge info">Normal</span>';
+              hHtml += `<tr>
+                <td>${row.id || '-'}</td>
+                <td style="font-weight:700; ${direction === 'IN' ? 'color:var(--accent)' : 'color:var(--danger)'}">${direction}</td>
+                <td>${escapeHtml(adminDisplay)}</td>
+                <td>${status}</td>
+                <td>${row.created_at || '-'}</td>
+              </tr>`;
+            });
+            if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = hHtml;
+          }
+        } catch (err) {
+          if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = '<tr><td colspan="5">History unavailable</td></tr>';
+        }
+      } catch (err) {
+        if (previewNameEl) previewNameEl.textContent = 'Unable to load user';
+        if (previewHistoryRowsEl) previewHistoryRowsEl.innerHTML = '<tr><td colspan="5">User data unavailable</td></tr>';
+      }
+    }
+
+    if (previewCloseBtnEl) {
+      previewCloseBtnEl.addEventListener('click', () => {
+        if (personPreviewPanelEl) personPreviewPanelEl.classList.add('hidden');
+      });
+    }
+
     let scanPollInterval = null;
     let suspiciousPollInterval = null;
     let registerPollInterval = null;

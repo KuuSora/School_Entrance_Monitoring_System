@@ -69,6 +69,11 @@ $sql = "SELECT uid, name, student_id, course, school_year, section,
          purpose, valid_until,
          {$visitorEmail}, {$visitorPhone}, {$visitorNotes}, {$visitorPhoto}, 'visitor' AS role
      FROM visitors WHERE uid = ?
+     UNION ALL
+     SELECT uid, name, NULL, NULL, NULL, NULL,
+         NULL, NULL, NULL,
+         NULL, NULL, NULL, NULL, NULL, NULL, 'admin' AS role
+     FROM admins WHERE uid = ?
      LIMIT 1";
 
 $stmt = $mysqli->prepare($sql);
@@ -77,7 +82,7 @@ if (!$stmt) {
     echo json_encode(['ok' => false, 'error' => 'Query preparation failed']);
     exit;
 }
-$stmt->bind_param('ssss', $uid, $uid, $uid, $uid);
+$stmt->bind_param('sssss', $uid, $uid, $uid, $uid, $uid);
 $stmt->execute();
 $res = $stmt->get_result();
 $user = $res->fetch_assoc();
