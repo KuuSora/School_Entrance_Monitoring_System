@@ -12,6 +12,15 @@ $admin_uid_filter = isset($_GET['admin_uid']) ? trim($_GET['admin_uid']) : null;
 if ($admin_uid_filter === '') {
     $admin_uid_filter = null;
 }
+$from_date = isset($_GET['from']) ? trim($_GET['from']) : '';
+$to_date = isset($_GET['to']) ? trim($_GET['to']) : '';
+$date_pattern = '/^\d{4}-\d{2}-\d{2}$/';
+if ($from_date !== '' && !preg_match($date_pattern, $from_date)) {
+    $from_date = '';
+}
+if ($to_date !== '' && !preg_match($date_pattern, $to_date)) {
+    $to_date = '';
+}
 
 if ($uid === '') {
     http_response_code(400);
@@ -52,6 +61,16 @@ $types = 's';
 if ($admin_uid_filter !== null) {
     $sql .= ' AND s.admin_uid = ?';
     $params[] = $admin_uid_filter;
+    $types .= 's';
+}
+if ($from_date !== '') {
+    $sql .= ' AND s.created_at >= ?';
+    $params[] = $from_date . ' 00:00:00';
+    $types .= 's';
+}
+if ($to_date !== '') {
+    $sql .= ' AND s.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
+    $params[] = $to_date . ' 00:00:00';
     $types .= 's';
 }
 

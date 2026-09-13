@@ -69,6 +69,9 @@ $unionSql = "(
     UNION ALL
     SELECT uid, name, purpose AS identifier, NULL AS course, NULL AS school_year, NULL AS section, NULL AS department, {$visitorEmail}, {$visitorPhone}, purpose, valid_until, 'visitor' AS role, {$visitorPhoto}
     FROM visitors
+    UNION ALL
+    SELECT uid, name, NULL AS identifier, NULL AS course, NULL AS school_year, NULL AS section, NULL AS department, NULL AS email, NULL AS phone, NULL AS purpose, NULL AS valid_until, 'admin' AS role, NULL AS photo
+    FROM admins
 ) p";
 
 $sql = "SELECT p.*

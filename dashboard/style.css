@@ -482,6 +482,7 @@ body.dark-mode .card.alert-card .list li .badge {
   align-items: stretch;
   gap: 16px;
   min-width: 0;
+  perspective: 1000px;
 }
 
 .id-card-container > .stats-column {
@@ -1739,33 +1740,21 @@ body.dark-mode #registerFormWrap {
 }
 
 .profile-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: var(--space-lg);
-}
-
-@media (max-width: 700px) {
-  .profile-modal {
-    align-items: start;
-    padding: 12px;
-  }
+  position: static;
+  display: block;
+  margin-top: var(--space-lg);
+  padding: 0;
 }
 
 .profile-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.62);
-  backdrop-filter: blur(4px);
+  display: none;
 }
 
 .profile-panel {
   position: relative;
-  width: min(920px, 100%);
-  max-height: calc(100vh - 48px);
-  overflow: auto;
+  width: 100%;
+  max-height: none;
+  overflow: visible;
   padding: var(--space-lg);
   border: 1px solid var(--stroke);
   border-radius: 18px;
@@ -1877,34 +1866,16 @@ body.dark-mode #registerFormWrap {
   overflow-wrap: break-word;
 }
 
-.profile-summary {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+.profile-activity-chart-section {
   margin-bottom: var(--space-md);
 }
 
-.profile-summary div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 11px 13px;
-  border: 1px solid var(--stroke);
-  border-radius: 10px;
-  background: var(--card);
-}
-
-.profile-summary span {
-  color: var(--ink-muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.profile-summary strong {
-  color: var(--accent);
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 21px;
+.profile-activity-chart-wrap {
+  position: relative;
+  height: 280px;
+  margin-top: 10px;
+  padding: 12px 8px 4px;
+  border-top: 1px solid var(--stroke);
 }
 
 .profile-history-heading {
@@ -1921,6 +1892,16 @@ body.dark-mode #registerFormWrap {
 }
 
 .profile-history-wrap {
+.profile-history-filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.profile-history-filters .field {
+  min-width: 150px;
+}
   overflow: auto;
   max-height: 390px;
   border: 1px solid var(--stroke);

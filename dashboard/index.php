@@ -273,13 +273,13 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Register</span>
       </button>
-      <button class="tab-btn" data-tab="personalActivityTab" title="Personal Activity">
+      <button class="tab-btn" data-tab="personalActivityTab" title="Profile View">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M12 2a5 5 0 0 1 5 5v1h1.5A2.5 2.5 0 0 1 21 10.5v8A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5v-8A2.5 2.5 0 0 1 5.5 8H7V7a5 5 0 0 1 5-5zm3 6V7a3 3 0 0 0-6 0v1h6zm-3 5a2 2 0 0 0-1 3.732V17a1 1 0 0 0 2 0v-.268A2 2 0 0 0 12 13z" />
           </svg>
         </span>
-        <span class="tab-label">Personal Activity</span>
+        <span class="tab-label">Profile View</span>
       </button>
       <button class="tab-btn" data-tab="dailyLogsTab" title="Daily Logs">
         <span class="tab-icon" aria-hidden="true">
@@ -714,6 +714,7 @@ if (!isset($_SESSION['admin_uid'])) {
                     <option value="faculty">Faculty</option>
                     <option value="staff">Staff</option>
                     <option value="visitor">Visitor</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </div>
                 <div class="field">
@@ -736,21 +737,8 @@ if (!isset($_SESSION['admin_uid'])) {
 
       <div id="personalActivityTab" class="tab-content">
         <section class="section">
-          <h1>Personal Activity</h1>
-          <p class="sub">Browse scans by person, scoped by admin.</p>
-          <div class="split">
-            <div class="card">
-              <h3>Person Logs</h3>
-              <div class="field"><label for="personalAdminFilter">Admin filter</label><select id="personalAdminFilter"><option value="">All Admins</option></select></div>
-              <div class="field"><label for="personalUserSelect">Select person</label><select id="personalUserSelect"></select></div>
-              <div class="tag-row" id="personalUserAdminTags"></div>
-              <div class="panel-table"><table class="table-compact"><thead><tr><th>ID</th><th>Dir</th><th>Admin</th><th>Time</th></tr></thead><tbody id="personalUserLogs"></tbody></table></div>
-            </div>
-            <div class="stack">
-              <div class="card"><h3>Quick Note</h3><p class="sub">This isolates personal activity on the dashboard.</p></div>
-              <div class="card"><h3>Back to Dashboard</h3><p class="sub">Return to the main overview.</p><button class="btn" type="button" data-tab="dashboardTab">Open Dashboard</button></div>
-            </div>
-          </div>
+          <h1>Profile View</h1>
+          <p class="sub">Search registered users and preview their profile details and scan history.</p>
         </section>
       </div>
 
@@ -758,62 +746,6 @@ if (!isset($_SESSION['admin_uid'])) {
         <section class="section">
           <h1>Daily Logs</h1>
           <p class="sub">Generate daily scan outputs from the API.</p>
-          <div class="daily-log-search-section">
-            <div class="search-bar">
-              <div class="search-input-wrap">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input id="dailyLogSearchInput" type="search" placeholder="Search by name, UID, Student ID, Faculty ID..." autocomplete="off" />
-              </div>
-              <select id="dailyLogSearchRole" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
-                <option value="">All Types</option>
-                <option value="student">Student</option>
-                <option value="faculty">Faculty</option>
-                <option value="staff">Staff</option>
-                <option value="visitor">Visitor</option>
-              </select>
-              <button type="button" class="btn secondary compact" id="dailyLogSearchBtn">Search</button>
-            </div>
-
-            <div id="dailyLogSearchResults" class="search-results hidden"></div>
-          </div>
-
-          <div id="personPreviewPanel" class="person-preview-section hidden">
-            <div class="person-preview-grid">
-              <div class="person-preview-photo">
-                <img id="previewPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo" />
-              </div>
-              <div class="person-preview-details">
-                <h3 id="previewName">-</h3>
-                <div class="detail-row">
-                  <span class="detail-item"><strong>UID:</strong> <span id="previewUid">-</span></span>
-                  <span class="detail-item"><strong>Role:</strong> <span id="previewRole">-</span></span>
-                  <span class="detail-item" id="previewIdDetail"></span>
-                </div>
-                <div class="detail-row" id="previewExtraDetails"></div>
-              </div>
-              <button type="button" class="btn secondary compact" id="previewCloseBtn">Close</button>
-            </div>
-            <div class="person-preview-history">
-              <h4>Scan History (Last 50 entries)</h4>
-              <div class="panel-table" style="max-height:280px;">
-                <table class="table-compact">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Direction</th>
-                      <th>Admin</th>
-                      <th>Status</th>
-                      <th>Time</th>
-                    </tr>
-                  </thead>
-                  <tbody id="previewHistoryRows">
-                    <tr><td colspan="5">Loading...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
           <section class="section admin-history-section" aria-labelledby="adminHistoryTitle">
             <div class="admin-history-heading">
               <div>
@@ -1014,11 +946,29 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
-    <div id="userProfileModal" class="profile-modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileName">
+    <div id="userProfileModal" class="profile-modal" role="region" aria-labelledby="profileName">
       <div class="profile-backdrop" data-close-profile></div>
       <div class="profile-panel">
-        <button type="button" class="profile-close" id="closeProfileBtn" aria-label="Close profile">&times;</button>
-        <div class="profile-loading" id="profileLoading">Loading profile...</div>
+        <div class="profile-search-section">
+          <h3>Find a Profile</h3>
+          <div class="search-bar">
+            <div class="search-input-wrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input id="dailyLogSearchInput" type="search" placeholder="Search by name, UID, Student ID, Faculty ID..." autocomplete="off" />
+            </div>
+            <select id="dailyLogSearchRole" aria-label="Profile role">
+              <option value="">All Types</option>
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="staff">Staff</option>
+              <option value="visitor">Visitor</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button type="button" class="btn secondary compact" id="dailyLogSearchBtn">Search</button>
+          </div>
+          <div id="dailyLogSearchResults" class="search-results hidden"></div>
+        </div>
+        <div class="profile-loading hidden" id="profileLoading">Loading profile...</div>
         <div id="profileContent" class="hidden">
           <div class="profile-header">
             <div class="profile-avatar">
@@ -1031,14 +981,30 @@ if (!isset($_SESSION['admin_uid'])) {
             </div>
           </div>
           <div id="profileDetails" class="profile-details"></div>
-          <div id="profileSummary" class="profile-summary">
-            <div><span>Total Scans</span><strong id="profileTotalScans">-</strong></div>
-            <div><span>IN</span><strong id="profileInScans">-</strong></div>
-            <div><span>OUT</span><strong id="profileOutScans">-</strong></div>
+          <div class="profile-activity-chart-section">
+            <div class="profile-history-heading">
+              <h3>Activity Over Time</h3>
+              <span id="profileActivitySummary" class="chart-sub">-</span>
+            </div>
+            <div class="profile-activity-chart-wrap">
+              <canvas id="profileActivityChart"></canvas>
+            </div>
           </div>
           <div class="profile-history-heading">
             <h3>Scan History</h3>
             <span id="profileHistoryCount" class="chart-sub">-</span>
+          </div>
+          <div class="profile-history-filters">
+            <div class="field">
+              <label for="profileHistoryFrom">From</label>
+              <input id="profileHistoryFrom" type="date" />
+            </div>
+            <div class="field">
+              <label for="profileHistoryTo">To</label>
+              <input id="profileHistoryTo" type="date" />
+            </div>
+            <button type="button" class="btn secondary compact" id="profileHistoryApplyBtn">Apply Dates</button>
+            <button type="button" class="btn secondary compact" id="profileHistoryClearBtn">Clear</button>
           </div>
           <div class="profile-history-wrap">
             <table>
@@ -1078,6 +1044,8 @@ if (!isset($_SESSION['admin_uid'])) {
     const suspiciousCountEl = document.getElementById('suspiciousCount');
     const suspiciousMetaEl = document.getElementById('suspiciousMeta');
     const chartStatusEl = document.getElementById('chartStatus');
+    const profileActivityChartEl = document.getElementById('profileActivityChart');
+    const profileActivitySummaryEl = document.getElementById('profileActivitySummary');
     const historyChartEl = document.getElementById('historyChart');
     const roleChartEl = document.getElementById('roleChart');
     const directionChartEl = document.getElementById('directionChart');
@@ -1155,13 +1123,16 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const profileNameEl = document.getElementById('profileName');
     const profileIdentifierEl = document.getElementById('profileIdentifier');
     const profileDetailsEl = document.getElementById('profileDetails');
-    const profileSummaryEl = document.getElementById('profileSummary');
-    const profileTotalScansEl = document.getElementById('profileTotalScans');
-    const profileInScansEl = document.getElementById('profileInScans');
-    const profileOutScansEl = document.getElementById('profileOutScans');
     const profileHistoryCountEl = document.getElementById('profileHistoryCount');
     const profileHistoryRowsEl = document.getElementById('profileHistoryRows');
-    const closeProfileBtn = document.getElementById('closeProfileBtn');
+    const profileHistoryFromEl = document.getElementById('profileHistoryFrom');
+    const profileHistoryToEl = document.getElementById('profileHistoryTo');
+    const profileHistoryApplyBtnEl = document.getElementById('profileHistoryApplyBtn');
+    const profileHistoryClearBtnEl = document.getElementById('profileHistoryClearBtn');
+    const profileViewTabEl = document.getElementById('personalActivityTab');
+    if (profileViewTabEl && userProfileModalEl) {
+      profileViewTabEl.appendChild(userProfileModalEl);
+    }
     const settingsFormEl = document.getElementById('settingsForm');
     const settingsStatusEl = document.getElementById('settingsStatus');
     const settingThemeEl = document.getElementById('settingTheme');
@@ -1187,9 +1158,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     let historyChart = null;
     let roleChart = null;
     let directionChart = null;
+    let profileActivityChart = null;
     let storageChart = null;
     let chartHistoryData = [];
     let profileRequestToken = 0;
+    let activeProfileUid = '';
     let resizedPhotoBlob = null;
     const chartColors = {
       studentIn: '#1d4ed8',
@@ -2344,16 +2317,56 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     }
 
+    function renderProfileActivityChart(historyRows) {
+      if (!profileActivityChartEl || typeof Chart === 'undefined') {
+        return;
+      }
+      if (profileActivityChart) {
+        profileActivityChart.destroy();
+        profileActivityChart = null;
+      }
+
+      const byDate = {};
+      historyRows.forEach(row => {
+        const date = String(row.created_at || '').slice(0, 10);
+        if (!date) return;
+        if (!byDate[date]) byDate[date] = { in: 0, out: 0, suspicious: 0 };
+        const direction = String(row.direction || '').toUpperCase();
+        if (direction === 'IN') byDate[date].in += 1;
+        if (direction === 'OUT') byDate[date].out += 1;
+        if (row.suspicious == 1) byDate[date].suspicious += 1;
+      });
+
+      const labels = Object.keys(byDate).sort();
+      profileActivityChart = new Chart(profileActivityChartEl, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'IN', data: labels.map(date => byDate[date].in), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.12)', tension: 0.3, fill: false },
+            { label: 'OUT', data: labels.map(date => byDate[date].out), borderColor: '#dc2626', backgroundColor: 'rgba(220, 38, 38, 0.12)', tension: 0.3, fill: false },
+            { label: 'Suspicious', data: labels.map(date => byDate[date].suspicious), borderColor: '#d97706', backgroundColor: 'rgba(217, 119, 6, 0.12)', tension: 0.3, fill: false }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+      if (profileActivitySummaryEl) {
+        profileActivitySummaryEl.textContent = labels.length ? `${labels.length} active days` : 'No activity in range';
+      }
+    }
+
     function renderProfileHistory(rows, historyError = false) {
       if (!profileHistoryRowsEl) {
         return;
       }
       const historyRows = Array.isArray(rows) ? rows : [];
-      const inCount = historyRows.filter(row => String(row.direction).toUpperCase() === 'IN').length;
-      const outCount = historyRows.filter(row => String(row.direction).toUpperCase() === 'OUT').length;
-      if (profileTotalScansEl) profileTotalScansEl.textContent = formatCount(historyRows.length);
-      if (profileInScansEl) profileInScansEl.textContent = formatCount(inCount);
-      if (profileOutScansEl) profileOutScansEl.textContent = formatCount(outCount);
+      renderProfileActivityChart(historyRows);
       if (profileHistoryCountEl) {
         profileHistoryCountEl.textContent = historyError ? 'History unavailable' : `${formatCount(historyRows.length)} scans`;
       }
@@ -2399,6 +2412,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       if (!uid || !userProfileModalEl || !profileLoadingEl || !profileContentEl) {
         return;
       }
+      activeProfileUid = uid;
       const requestToken = ++profileRequestToken;
       userProfileModalEl.classList.remove('hidden');
       profileContentEl.classList.add('hidden');
@@ -2424,7 +2438,16 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         let historyRows = [];
         let historyError = false;
         try {
-          const historyRes = await fetch(`../api/users/get_personal_activity.php?uid=${encodeURIComponent(uid)}&limit=500`);
+          const historyUrl = new URL('../api/users/get_personal_activity.php', window.location.href);
+          historyUrl.searchParams.set('uid', uid);
+          historyUrl.searchParams.set('limit', '500');
+          if (profileHistoryFromEl && profileHistoryFromEl.value) {
+            historyUrl.searchParams.set('from', profileHistoryFromEl.value);
+          }
+          if (profileHistoryToEl && profileHistoryToEl.value) {
+            historyUrl.searchParams.set('to', profileHistoryToEl.value);
+          }
+          const historyRes = await fetch(historyUrl.toString());
           if (historyRes.ok) {
             const historyData = await historyRes.json();
             if (historyData.ok && Array.isArray(historyData.data)) {
@@ -2739,16 +2762,28 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     }
 
-    if (closeProfileBtn) {
-      closeProfileBtn.addEventListener('click', closeUserProfile);
-    }
     document.querySelectorAll('[data-close-profile]').forEach(el => {
       el.addEventListener('click', closeUserProfile);
     });
+    if (profileHistoryApplyBtnEl) {
+      profileHistoryApplyBtnEl.addEventListener('click', () => {
+        const fromDate = profileHistoryFromEl ? profileHistoryFromEl.value : '';
+        const toDate = profileHistoryToEl ? profileHistoryToEl.value : '';
+        if (fromDate && toDate && fromDate > toDate) {
+          if (profileHistoryCountEl) profileHistoryCountEl.textContent = 'From date must be before To date';
+          return;
+        }
+        if (activeProfileUid) openUserProfile(activeProfileUid);
+      });
+    }
+    if (profileHistoryClearBtnEl) {
+      profileHistoryClearBtnEl.addEventListener('click', () => {
+        if (profileHistoryFromEl) profileHistoryFromEl.value = '';
+        if (profileHistoryToEl) profileHistoryToEl.value = '';
+        if (activeProfileUid) openUserProfile(activeProfileUid);
+      });
+    }
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        closeUserProfile();
-      }
       if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-tab][role="button"]')) {
         event.preventDefault();
         setActiveTab(event.target.dataset.tab);
@@ -3088,7 +3123,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
         dailyLogSearchResultsEl.querySelectorAll('.search-result-item').forEach(item => {
           item.addEventListener('click', () => {
-            openPersonPreview(item.dataset.uid);
+            openUserProfile(item.dataset.uid);
             dailyLogSearchResultsEl.classList.add('hidden');
           });
         });

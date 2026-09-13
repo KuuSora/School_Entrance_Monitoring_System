@@ -45,6 +45,10 @@ unsigned long inLastScanTime = 0;
 unsigned long outLastScanTime = 0;
 const unsigned long SCAN_COOLDOWN_MS = 1500;
 
+// Admin login persistence
+bool adminLoggedIn = false;
+const char* PREFS_ADMIN_KEY = "admin_logged_in";
+
 // Buzzer feedback for access granted (non-blocking)
 unsigned long buzzerEndTime = 0;
 const unsigned long BUZZER_DURATION_MS = 1000;
@@ -352,6 +356,7 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   lastScanTimeRef = now;
 
   String adminUid = "";
+  bool cardIsRegistered = false;
   if (!networkReady()) {
     Serial.println("Network not ready (ESP32 not connected to desktop WiFi?)");
     debugPrintWifiInfo();
@@ -359,21 +364,27 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   } else {
     bool isAdmin = checkAdminByApi(uid);
 
-     if (isAdmin) {
-       adminUid = uid;
-       postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
-       showStatus("Admin Access", "Open dashboard");
-       triggerBuzzer();
-     } else {
-       bool registered = checkRegisteredUser(uid);
-       if (registered) {
-         showStatus("Registered Card", "Access logged");
-         triggerBuzzer();
-       } else {
-         postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
-         showStatus("New Card", "Go Register");
-       }
-     }
+    if (isAdmin) {
+      adminUid = uid;
+      adminLoggedIn = true;
+      prefs.begin("config", false);
+      prefs.putBool(PREFS_ADMIN_KEY, true);
+      prefs.end();
+      postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
+      showStatus("Admin Access", "Open dashboard");
+      triggerBuzzer();
+      cardIsRegistered = true;
+    } else {
+      bool registered = checkRegisteredUser(uid);
+      if (registered) {
+        showStatus("Registered Card", "Access logged");
+        triggerBuzzer();
+        cardIsRegistered = true;
+      } else {
+        postSignal(buildEndpointUrl(SUBFOLDER_SIGNALS, "report_register_scan.php"), uid);
+        showStatus("New Card", "Go Register");
+      }
+    }
   }
 
   logScan(uid, direction, adminUid);
@@ -381,12 +392,16 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   reader.PICC_HaltA();
   reader.PCD_StopCrypto1();
 
-  if (direction == "OUT") {
-    unlockOut();
-    outUnlocked = true;
-  } else if (direction == "IN") {
-    unlockIn();
-    inUnlocked = true;
+  if (cardIsRegistered) {
+    if (direction == "OUT") {
+      unlockOut();
+      outUnlocked = true;
+    } else if (direction == "IN") {
+      unlockIn();
+      inUnlocked = true;
+    }
+  } else {
+    showStatus("No Unlock", "Card not registered");
   }
   showStatus("Ready to Scan", "");
   return true;
@@ -414,6 +429,13 @@ void setup() {
 
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
+
+  prefs.begin("config", false);
+  adminLoggedIn = prefs.getBool(PREFS_ADMIN_KEY, false);
+  prefs.end();
+  if (DEBUG_SERIAL) {
+    Serial.print("[ADMIN] Logged in: "); Serial.println(adminLoggedIn ? "yes" : "no");
+  }
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);

@@ -228,6 +228,13 @@ if ($role === 'student') {
     if ($hasNotes) $updatableColumns[] = 'notes';
     if ($hasPhoto) $updatableColumns[] = 'photo';
     $ok = insertOrUpdateRole($mysqli, 'visitors', $baseColumns, $baseValues, $updatableColumns);
+} else if ($role === 'admin') {
+    $baseColumns = ['uid', 'name'];
+    $baseValues = [
+        'uid' => $uid,
+        'name' => $name,
+    ];
+    $ok = insertOrUpdateRole($mysqli, 'admins', $baseColumns, $baseValues, ['name']);
 } else {
     http_response_code(400);
     echo json_encode(['ok' => false, 'error' => 'Invalid role']);

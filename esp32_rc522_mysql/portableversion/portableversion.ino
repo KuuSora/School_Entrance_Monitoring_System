@@ -63,6 +63,11 @@ const unsigned long MODE_CHANGE_COOLDOWN_MS = 1000;
 // loop() for the LED blink pattern, so it's marked volatile.
 volatile bool adminLoggedInFlag = false;
 
+// Admin login state changed flag (written by networkTask, saved by loop)
+volatile bool adminLoginChanged = false;
+
+const char* PREFS_ADMIN_KEY = "admin_logged_in";
+
 // ---------------------------------------------------------------------------
 // ASYNC NETWORKING: everything that talks to the PHP server now runs on a
 // separate FreeRTOS task (pinned to core 0), fed by a queue. loop() (core 1)
@@ -407,6 +412,20 @@ bool checkRegisteredUser(const String& uid) {
   return ok && resp.indexOf("\"ok\":true") >= 0;
 }
 
+// Check if card is currently IN (has an active IN scan without matching OUT)
+// Uses get_user_logs.php with limit=1, ordered by ID DESC
+bool checkCardStatus(const String& uid) {
+  if (!networkReady()) return false;
+  String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user_logs.php") + "?uid=" + uid + "&limit=1";
+  int code = -1;
+  String resp = "";
+  bool ok = httpGetWithRetry(url, code, resp, 1);
+  if (!ok) return false;
+  // With limit=1 ordered DESC, first data entry is the most recent scan
+  // If direction is IN, card is currently inside → needs OUT
+  return resp.indexOf("\"ok\":true") >= 0 && resp.indexOf("\"direction\":\"IN\"") >= 0;
+}
+
 bool postSignal(const String& url, const String& uid) {
   if (!networkReady()) return false;
   String body = "uid=" + uid;
@@ -441,6 +460,7 @@ void processScanJob(const ScanJob& job) {
   if (isAdmin) {
     if (direction == "ADMIN") {
       adminLoggedInFlag = true;
+      adminLoginChanged = true;
     }
     postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
     logScan(uid, direction, uid);
@@ -483,6 +503,20 @@ bool handleScan(MFRC522& reader) {
   }
 
   String uid = uidToString(&reader.uid);
+
+  // Auto-determine direction based on card status
+  if (networkReady()) {
+    bool isAdmin = checkAdminByApi(uid);
+    if (isAdmin) {
+      DIRECTION = "ADMIN";
+    } else if (checkCardStatus(uid)) {
+      DIRECTION = "OUT";
+    } else {
+      DIRECTION = "IN";
+    }
+    updateLEDs();
+  }
+
   Serial.print("UID ["); Serial.print(DIRECTION); Serial.print("]: "); Serial.println(uid);
   showStatus("Card Scanned", "Processing...");
 
@@ -559,8 +593,18 @@ void setup() {
   Serial.println("RC522 reader ready");
   if (DEBUG_SERIAL) {
     byte v = mfrc522.PCD_ReadRegister(MFRC522::VersionReg);
-    Serial.print("RC522 version: 0x");
-    Serial.println(v, HEX);
+    Serial.print("RC522 version: 0x"); Serial.println(v, HEX);
+  }
+
+  // Check admin login state from persistent storage
+  prefs.begin("config", true);
+  adminLoggedInFlag = prefs.getBool(PREFS_ADMIN_KEY, false);
+  prefs.end();
+  if (DEBUG_SERIAL) {
+    Serial.print("[ADMIN] Logged in: "); Serial.println(adminLoggedInFlag ? "yes" : "no");
+    if (!adminLoggedInFlag) {
+      Serial.println("[ADMIN] Scan admin card to unlock system");
+    }
   }
 
   // Set up background networking task + job queue
@@ -585,6 +629,16 @@ void loop() {
   handleSerialCommands();
   handleButton();
   updateAdminBlink();
+
+  if (adminLoginChanged) {
+    adminLoginChanged = false;
+    prefs.begin("config", false);
+    prefs.putBool(PREFS_ADMIN_KEY, adminLoggedInFlag);
+    prefs.end();
+    if (DEBUG_SERIAL) {
+      Serial.print("[ADMIN] Persisted login: "); Serial.println(adminLoggedInFlag ? "yes" : "no");
+    }
+  }
 
   if (scanCooldownActive) {
     if (millis() - lastScanTime > SCAN_COOLDOWN_MS) {
