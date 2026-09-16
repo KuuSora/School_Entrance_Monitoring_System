@@ -115,6 +115,24 @@ body.dark-mode .topbar {
   font-size: 13px;
   color: #ffffff;
   font-weight: 600;
+
+.topbar-notice {
+  max-width: 520px;
+  padding: 8px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+body.dark-mode .topbar-notice {
+  border-color: #f59e0b;
+  background: #451a03;
+  color: #fde68a;
+}
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 

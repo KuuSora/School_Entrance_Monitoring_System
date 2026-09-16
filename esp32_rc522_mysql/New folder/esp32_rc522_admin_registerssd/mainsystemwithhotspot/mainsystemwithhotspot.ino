@@ -247,13 +247,16 @@ bool httpPost(const String& url, const String& body, int& outCode) {
   return outCode == HTTP_CODE_OK;
 }
 
-bool httpGet(const String& url, int& outCode) {
+bool httpGet(const String& url, int& outCode, String* responseOut = nullptr) {
   if (!networkReady()) return false;
   HTTPClient http;
   http.begin(url);
   http.setTimeout(3000);
   outCode = http.GET();
   String resp = http.getString();
+  if (responseOut != nullptr) {
+    *responseOut = resp;
+  }
   if (DEBUG_SERIAL) {
     Serial.print("GET "); Serial.println(url);
     Serial.print("HTTP "); Serial.print(outCode); Serial.print(" "); Serial.println(httpCodeToTextLocal(outCode));
@@ -272,8 +275,12 @@ bool checkAdminByApi(const String& uid) {
 
 bool checkRegisteredUser(const String& uid) {
   int code = -1;
+  String response;
   String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
-  return httpGet(url, code) && code == HTTP_CODE_OK;
+  if (!httpGet(url, code, &response) || code != HTTP_CODE_OK) {
+    return false;
+  }
+  return response.indexOf("\"ok\":true") >= 0 && response.indexOf("\"data\":") >= 0;
 }
 
 bool postSignal(const String& url, const String& uid) {
@@ -482,8 +489,8 @@ void loop() {
     buzzerEndTime = 0;
   }
 
-  handleScan(mfrc522In, "IN", inLastScanTime);
-  handleScan(mfrc522Out, "OUT", outLastScanTime);
+  handleScan(mfrc522In, "OUT", inLastScanTime);
+  handleScan(mfrc522Out, "IN", outLastScanTime);
 
   delay(50);
 }

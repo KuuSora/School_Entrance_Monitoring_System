@@ -1,6 +1,13 @@
 <?php
 header('Content-Type: application/json');
+session_start();
 require_once __DIR__ . '/../system/db.php';
+
+if (empty($_SESSION['is_master_admin'])) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Mastercard access required']);
+    exit;
+}
 
 function tableHasColumn(mysqli $mysqli, string $table, string $column): bool {
     $tbl = $mysqli->real_escape_string($table);

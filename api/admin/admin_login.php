@@ -64,7 +64,17 @@ if ($active_admin && !is_same_admin($uid_norm, $active_admin)) {
     exit;
 }
 
-$stmt = $mysqli->prepare("SELECT uid, name FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ? LIMIT 1");
+$hasMasterColumn = false;
+$columnResult = $mysqli->query("SHOW COLUMNS FROM admins LIKE 'is_master'");
+if ($columnResult) {
+    $hasMasterColumn = $columnResult->num_rows > 0;
+    $columnResult->free();
+}
+if (!$hasMasterColumn) {
+    $hasMasterColumn = $mysqli->query("ALTER TABLE admins ADD COLUMN is_master TINYINT(1) NOT NULL DEFAULT 0") !== false;
+}
+$adminColumns = $hasMasterColumn ? 'uid, name, is_master' : 'uid, name';
+$stmt = $mysqli->prepare("SELECT {$adminColumns} FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ? LIMIT 1");
 $stmt->bind_param('s', $uid_norm);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -80,10 +90,11 @@ if (!$admin) {
 session_start();
 $_SESSION['admin_uid'] = $admin['uid'];
 $_SESSION['admin_name'] = $admin['name'];
+$_SESSION['is_master_admin'] = $hasMasterColumn && !empty($admin['is_master']);
 save_active_admin($active_admin_file, $admin['uid'], $admin['name']);
 
 // clear any auto-login block
 $block_file = __DIR__ . '/../state/auto_login_block.json';
 if (file_exists($block_file)) @unlink($block_file);
 
-echo json_encode(['ok' => true, 'name' => $admin['name']]);
+echo json_encode(['ok' => true, 'name' => $admin['name'], 'is_master' => $_SESSION['is_master_admin']]);

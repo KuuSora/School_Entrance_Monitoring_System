@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dev_login'])) {
 
   $_SESSION['admin_uid'] = 'LOCAL-DEV';
   $_SESSION['admin_name'] = 'Local Dev';
+  $_SESSION['is_master_admin'] = true;
   header('Location: index.php');
   exit;
 }

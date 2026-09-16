@@ -4,6 +4,7 @@ if (!isset($_SESSION['admin_uid'])) {
   header('Location: login.php');
   exit;
 }
+$is_master_admin = !empty($_SESSION['is_master_admin']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -244,6 +245,7 @@ if (!isset($_SESSION['admin_uid'])) {
       <div class="topbar-title">Capiz State University Pilar Satallite College</div>
     </div>
     <div class="topbar-actions">
+      <div id="unregisteredScanNotice" class="topbar-notice hidden" role="status" aria-live="polite"></div>
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
       </div>
@@ -265,7 +267,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Live Preview</span>
       </button>
-      <button class="tab-btn" data-tab="registerTab" title="Register">
+      <?php if ($is_master_admin): ?><button class="tab-btn" data-tab="registerTab" title="Register">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
             <path d="M7 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-6-6H7zm6 1.5L18.5 9H13V3.5zM8 13h4a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2zm0 4h8a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2zm7-7h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2z" />
@@ -280,7 +282,7 @@ if (!isset($_SESSION['admin_uid'])) {
           </svg>
         </span>
         <span class="tab-label">Profile View</span>
-      </button>
+      </button><?php endif; ?>
       <button class="tab-btn" data-tab="dailyLogsTab" title="Daily Logs">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -384,11 +386,11 @@ if (!isset($_SESSION['admin_uid'])) {
                     <div class="value" id="monthTotal">-</div>
                     <div class="meta" id="monthMeta">Best day: -</div>
                   </div>
-                  <div class="overview-card card-active" data-tab="personalActivityTab" role="button" tabindex="0">
+                  <?php if ($is_master_admin): ?><div class="overview-card card-active" data-tab="personalActivityTab" role="button" tabindex="0">
                     <h3>Active</h3>
                     <div class="value" id="activeStudents">-</div>
                     <div class="meta">7d</div>
-                  </div>
+                  </div><?php endif; ?>
                 </div>
               </div>
             </div>
@@ -567,7 +569,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
       </div>
 
-      <div id="registerTab" class="tab-content">
+      <?php if ($is_master_admin): ?><div id="registerTab" class="tab-content">
         <section class="section">
           <h1>Register Card</h1>
           <p class="sub">Scan a card first to view or register details.</p>
@@ -733,14 +735,16 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
 
         
-      </div>
+      </div><?php endif; ?>
 
+      <?php if ($is_master_admin): ?>
       <div id="personalActivityTab" class="tab-content">
         <section class="section">
           <h1>Profile View</h1>
           <p class="sub">Search registered users and preview their profile details and scan history.</p>
         </section>
       </div>
+      <?php endif; ?>
 
       <div id="dailyLogsTab" class="tab-content">
         <section class="section">
@@ -946,7 +950,7 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
-    <div id="userProfileModal" class="profile-modal" role="region" aria-labelledby="profileName">
+    <?php if ($is_master_admin): ?><div id="userProfileModal" class="profile-modal" role="region" aria-labelledby="profileName">
       <div class="profile-backdrop" data-close-profile></div>
       <div class="profile-panel">
         <div class="profile-search-section">
@@ -1022,7 +1026,7 @@ if (!isset($_SESSION['admin_uid'])) {
           </div>
         </div>
       </div>
-    </div>
+    </div><?php endif; ?>
 
   </div>
 
@@ -1099,7 +1103,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const viewPurposeEl = document.getElementById('viewPurpose');
     const viewValidUntilEl = document.getElementById('viewValidUntil');
     const viewPhotoEl = document.getElementById('viewPhoto');
-    viewPhotoEl.onerror = function() {
+    if (viewPhotoEl) viewPhotoEl.onerror = function() {
       this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
     };
     const idCardDisplayEl = document.getElementById('idCardDisplay');
@@ -1115,7 +1119,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const profileLoadingEl = document.getElementById('profileLoading');
     const profileContentEl = document.getElementById('profileContent');
     const profilePhotoEl = document.getElementById('profilePhoto');
-    profilePhotoEl.onerror = function() {
+    if (profilePhotoEl) profilePhotoEl.onerror = function() {
       this.onerror = null;
       this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
     };
@@ -1953,13 +1957,19 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     }
 
     function showPrompt() {
+      if (!scanPromptEl || !registeredViewEl || !registerFormWrapEl) {
+        return;
+      }
       scanPromptEl.classList.remove('hidden');
       registeredViewEl.classList.add('hidden');
       registerFormWrapEl.classList.add('hidden');
-      registerStatusEl.textContent = '';
+      if (registerStatusEl) registerStatusEl.textContent = '';
     }
 
     function showRegistered(user) {
+      if (!scanPromptEl || !registeredViewEl || !registerFormWrapEl) {
+        return;
+      }
       scanPromptEl.classList.add('hidden');
       registeredViewEl.classList.remove('hidden');
       registerFormWrapEl.classList.add('hidden');
@@ -1980,23 +1990,23 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       viewEmailEl.value = user.email || '';
       viewRoleEl.value = user.role || '';
       viewPhotoEl.src = getProfilePhotoSrc(user.photo);
-      registerStatusEl.textContent = '';
+      if (registerStatusEl) registerStatusEl.textContent = '';
     }
 
     function showUnregistered(uid, scannedAt) {
-      scanPromptEl.classList.add('hidden');
-      registeredViewEl.classList.add('hidden');
-      registerFormWrapEl.classList.remove('hidden');
-      currentRegisteredUser = null;
-      regUidEl.value = uid || '';
-      regUidEl.readOnly = true;
-      updateRoleFields(document.getElementById('regRole').value || 'student');
-      registerStatusEl.textContent = '';
-      setActiveTab('registerTab');
+      const notice = document.getElementById('unregisteredScanNotice');
+      if (!notice) return;
+      const timeText = scannedAt ? ` at ${scannedAt}` : '';
+      notice.textContent = `Unregistered or restricted card ${uid || ''} scanned${timeText}. Please call the Mastercard holder to register this card.`;
+      notice.classList.remove('hidden');
+      window.clearTimeout(window.unregisteredNoticeTimer);
+      window.unregisteredNoticeTimer = window.setTimeout(() => {
+        notice.classList.add('hidden');
+      }, 15000);
     }
 
     function showEditFormFromUser(user) {
-      if (!user) {
+      if (!user || !scanPromptEl || !registeredViewEl || !registerFormWrapEl) {
         return;
       }
       scanPromptEl.classList.add('hidden');
@@ -2542,11 +2552,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const createdAt = row.created_at || '';
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
           const deptDisplay = row.department ? row.department : '';
-          const suspiciousBadge = row.suspicious == 1 ? '<span class="suspicious-badge">âš </span>' : '';
+          const suspiciousBadge = '';
           const trClass = row.suspicious == 1 ? 'class="suspicious-row"' : '';
           const profileAttribute = name !== 'New User' && uid ? ` data-profile-uid="${escapeHtml(uid)}"` : '';
           let userDisplay = name === 'New User'
-            ? `<button type="button" class="scan-register-btn" data-register-uid="${escapeHtml(uid)}" data-register-time="${escapeHtml(createdAt)}">Register</button>`
+            ? <?php echo $is_master_admin ? '`<button type="button" class="scan-register-btn" data-register-uid="${escapeHtml(uid)}" data-register-time="${escapeHtml(createdAt)}">Register</button>`' : '`<span class="scan-unregistered-label">Unregistered</span>`'; ?>
             : `<button type="button" class="scan-user-btn"${profileAttribute} title="View profile and history" aria-label="View ${escapeHtml(name)} profile">${escapeHtml(name)}</button>`;
 
           // add data attributes so we can target the newest scan row for animation
@@ -2805,7 +2815,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     }
 
-    registerFormEl.addEventListener('submit', async (event) => {
+    if (registerFormEl) registerFormEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       registerStatusEl.textContent = 'Saving...';
 
@@ -2848,9 +2858,12 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     }
 
-    document.getElementById('regRole').addEventListener('change', (event) => {
-      updateRoleFields(event.target.value);
-    });
+    const regRoleEl = document.getElementById('regRole');
+    if (regRoleEl) {
+      regRoleEl.addEventListener('change', (event) => {
+        updateRoleFields(event.target.value);
+      });
+    }
 
     if (regPhotoEl && regPhotoPreviewEl) {
       regPhotoEl.addEventListener('change', (event) => {
@@ -2866,7 +2879,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       });
     }
 
-    editRegisteredEl.addEventListener('click', () => {
+    if (editRegisteredEl) editRegisteredEl.addEventListener('click', () => {
       showEditFormFromUser(currentRegisteredUser);
     });
 
