@@ -68,7 +68,16 @@ function send_via_textbee(string $phone, string $message, array $config): array 
     return ['ok' => false, 'error' => 'HTTP ' . $httpCode . ': ' . $error, 'response' => $json];
 }
 
-function send_scan_sms(mysqli $mysqli, string $toPhone, string $toName, string $direction, string $uid, string $scanTime): array {
+function send_scan_sms(
+    mysqli $mysqli,
+    string $toPhone,
+    string $toName,
+    string $direction,
+    string $uid,
+    string $scanTime,
+    ?string $message = null,
+    ?string $eventType = null
+): array {
     $config = require __DIR__ . '/../api/config.php';
 
     if (empty($config['textbee_enabled'])) {
@@ -76,8 +85,8 @@ function send_scan_sms(mysqli $mysqli, string $toPhone, string $toName, string $
     }
 
     $direction = strtoupper($direction);
-    if ($direction !== 'IN') {
-        return ['ok' => true, 'action' => 'suppressed', 'reason' => 'Direction not IN'];
+    if ($direction !== 'IN' && $direction !== 'OUT') {
+        return ['ok' => true, 'action' => 'suppressed', 'reason' => 'Direction not IN or OUT'];
     }
 
     $normalizedPhone = normalize_ph_number($toPhone);
@@ -85,7 +94,7 @@ function send_scan_sms(mysqli $mysqli, string $toPhone, string $toName, string $
         return ['ok' => false, 'error' => 'Invalid Philippines phone number'];
     }
 
-    $eventType = 'scan_in';
+    $eventType = $eventType ?: ($direction === 'IN' ? 'first_in' : 'last_out');
     $stmt = $mysqli->prepare(
         "SELECT COUNT(*) AS cnt FROM notifications WHERE uid = ? AND event_type = ? AND status = 'sent' AND DATE(sent_at) = CURDATE()"
     );
@@ -101,8 +110,8 @@ function send_scan_sms(mysqli $mysqli, string $toPhone, string $toName, string $
         return ['ok' => true, 'action' => 'suppressed', 'reason' => 'Already sent one SMS to this user today'];
     }
 
-    $message = "Hello " . ($toName !== '' ? $toName : 'there') . ", your RFID card was scanned. " .
-        "Direction: " . $direction . ", UID: " . $uid . ", Time: " . $scanTime . ".";
+    $message = $message ?: ("Hello " . ($toName !== '' ? $toName : 'there') . ", your RFID card was scanned. " .
+        "Direction: " . $direction . ", UID: " . $uid . ", Time: " . $scanTime . ".");
 
     $stmt = $mysqli->prepare(
         "INSERT INTO notifications (uid, phone, message, event_type, provider, status) VALUES (?, ?, ?, ?, 'textbee', 'queued')"

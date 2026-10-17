@@ -1,6 +1,15 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
+require_once __DIR__ . '/../system/auth.php';
+
+require_admin_session();
+
+if (!ensure_admin_roles($mysqli)) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Unable to initialize admin roles']);
+    exit;
+}
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;
 if ($limit <= 0 || $limit > 500) {
@@ -50,21 +59,21 @@ if (count($whereParts) > 0) {
 
 $result = $mysqli->query(
     'SELECT s.id, s.uid, s.direction, s.created_at, s.admin_uid,
-            COALESCE(p.name, "New User") AS name, p.role,
+            COALESCE(p.name, "New User") AS name, p.role, p.admin_role,
             COALESCE(p.department, "") AS department,
             COALESCE(a.name, "") AS admin_name,
             CASE WHEN ss.cur_id IS NULL THEN 0 ELSE 1 END AS suspicious
      FROM scans s
      LEFT JOIN (
-          SELECT uid, name, "student" AS role, NULL AS department FROM students
+          SELECT uid, name, "student" AS role, NULL AS department, NULL AS admin_role FROM students
           UNION ALL
-          SELECT uid, name, "faculty" AS role, department FROM faculty
+          SELECT uid, name, "faculty" AS role, department, NULL AS admin_role FROM faculty
           UNION ALL
-          SELECT uid, name, "staff" AS role, department FROM staff
+          SELECT uid, name, "staff" AS role, department, NULL AS admin_role FROM staff
           UNION ALL
-          SELECT uid, name, "visitor" AS role, NULL AS department FROM visitors
+          SELECT uid, name, "visitor" AS role, NULL AS department, NULL AS admin_role FROM visitors
           UNION ALL
-          SELECT uid, name, "admin" AS role, NULL AS department FROM admins
+          SELECT uid, name, "admin" AS role, NULL AS department, admin_role FROM admins
       ) p ON s.uid = p.uid
      LEFT JOIN admins a ON s.admin_uid = a.uid
      LEFT JOIN (
@@ -79,13 +88,17 @@ $result = $mysqli->query(
      LIMIT ' . (int)$limit
 );
 
-$rows = [];
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $rows[] = $row;
-    }
-    $result->free();
+if (!$result) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Unable to load scan records']);
+    exit;
 }
+
+$rows = [];
+while ($row = $result->fetch_assoc()) {
+    $rows[] = $row;
+}
+$result->free();
 
 $stats = [
     'today' => ['total' => 0, 'in' => 0, 'out' => 0],

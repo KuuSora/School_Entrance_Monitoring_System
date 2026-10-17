@@ -4,6 +4,7 @@ if (!isset($_SESSION['admin_uid'])) {
   header('Location: login.php');
   exit;
 }
+$isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -273,6 +274,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Register</span>
       </button>
+      <?php if ($isMasterAdmin): ?>
       <button class="tab-btn" data-tab="personalActivityTab" title="Profile View">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -281,6 +283,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Profile View</span>
       </button>
+      <?php endif; ?>
       <button class="tab-btn" data-tab="dailyLogsTab" title="Daily Logs">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -289,6 +292,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Daily Logs</span>
       </button>
+      <?php if ($isMasterAdmin): ?>
       <button class="tab-btn" data-tab="reportsTab" title="Analytics">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -297,6 +301,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </span>
         <span class="tab-label">Reports</span>
       </button>
+      <?php endif; ?>
       <button class="tab-btn" data-tab="settingsTab" title="Settings">
         <span class="tab-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -347,6 +352,7 @@ if (!isset($_SESSION['admin_uid'])) {
                         </div>
                         <div class="id-card-info-area">
                           <div id="idCardName" class="id-card-name">Sample Name</div>
+                          <div id="idCardDepartment" class="id-card-department"></div>
                           <div id="idCardRole" class="id-card-role">Student</div>
                         </div>
                         <div class="id-card-id-area">
@@ -384,11 +390,13 @@ if (!isset($_SESSION['admin_uid'])) {
                     <div class="value" id="monthTotal">-</div>
                     <div class="meta" id="monthMeta">Best day: -</div>
                   </div>
+                  <?php if ($isMasterAdmin): ?>
                   <div class="overview-card card-active" data-tab="personalActivityTab" role="button" tabindex="0">
                     <h3>Active</h3>
                     <div class="value" id="activeStudents">-</div>
                     <div class="meta">7d</div>
                   </div>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
@@ -398,6 +406,7 @@ if (!isset($_SESSION['admin_uid'])) {
 
       </div>
 
+      <?php if ($isMasterAdmin): ?>
       <div id="reportsTab" class="tab-content">
         <section class="section">
           <h1>Reports</h1>
@@ -567,10 +576,16 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
       </div>
 
+      <?php endif; ?>
+
       <div id="registerTab" class="tab-content">
         <section class="section">
           <h1>Register Card</h1>
           <p class="sub">Scan a card first to view or register details.</p>
+          <div class="register-mode-tabs" role="tablist" aria-label="Card registration actions">
+            <button type="button" class="register-mode-tab active" data-register-mode="register" role="tab" aria-selected="true">Register New Card</button>
+            <button type="button" class="register-mode-tab" data-register-mode="edit" role="tab" aria-selected="false">Edit Card</button>
+          </div>
           <div id="scanPrompt" class="card scan-prompt">
             <div class="scan-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" role="img" focusable="false">
@@ -578,13 +593,14 @@ if (!isset($_SESSION['admin_uid'])) {
               </svg>
             </div>
             <div class="scan-text">
-              <h3>Scan an RFID Card</h3>
-              <p>Hold the card near the reader to load person details.</p>
+              <h3 id="scanPromptTitle">Scan an RFID Card</h3>
+              <p id="scanPromptText">Hold the card near the reader to load person details.</p>
+              <button type="button" class="btn secondary compact hidden" id="editScanBtn">Scan Card to Edit</button>
             </div>
           </div>
 
           <div id="registeredView" class="card hidden readonly" style="margin-top: 16px;">
-            <h3>Registered Person</h3>
+            <h3 id="registeredViewTitle">Registered Person</h3>
             <div class="form-grid">
               <div class="field">
                 <label>UID</label>
@@ -710,11 +726,15 @@ if (!isset($_SESSION['admin_uid'])) {
                 <div class="field">
                   <label for="regRole">Role</label>
                   <select id="regRole" name="role">
+                    <?php if ($isMasterAdmin): ?>
                     <option value="student">Student</option>
                     <option value="faculty">Faculty</option>
                     <option value="staff">Staff</option>
+                    <?php endif; ?>
                     <option value="visitor">Visitor</option>
+                    <?php if ($isMasterAdmin): ?>
                     <option value="admin">Admin</option>
+                    <?php endif; ?>
                   </select>
                 </div>
                 <div class="field">
@@ -735,6 +755,7 @@ if (!isset($_SESSION['admin_uid'])) {
         
       </div>
 
+      <?php if ($isMasterAdmin): ?>
       <div id="personalActivityTab" class="tab-content">
         <section class="section">
           <h1>Profile View</h1>
@@ -742,10 +763,12 @@ if (!isset($_SESSION['admin_uid'])) {
         </section>
       </div>
 
+      <?php endif; ?>
+
       <div id="dailyLogsTab" class="tab-content">
         <section class="section">
           <h1>Daily Logs</h1>
-          <p class="sub">Generate daily scan outputs from the API.</p>
+          <p class="sub">Generate organized daily attendance outputs grouped by person, with overall IN/OUT times.</p>
           <section class="section admin-history-section" aria-labelledby="adminHistoryTitle">
             <div class="admin-history-heading">
               <div>
@@ -937,6 +960,32 @@ if (!isset($_SESSION['admin_uid'])) {
                 <input id="settingRefreshSuspicious" name="refresh_suspicious_alerts" type="number" min="1" max="300" class="settings-input" />
               </div>
             </div>
+            <div class="settings-item settings-item-wide">
+              <div class="settings-item-main">
+                <div class="settings-item-title">SMS Notifications</div>
+                <div class="settings-item-desc">Send one first-IN and one OUT notification per student per day. Templates support {name}, {direction}, {uid}, and {time}.</div>
+              </div>
+              <div class="settings-item-control settings-sms-control">
+                <label><input type="checkbox" id="settingSmsFirstIn" /> First IN</label>
+                <textarea id="settingSmsFirstInTemplate" class="settings-textarea" rows="2" placeholder="Hello {name}, your first IN scan today was recorded at {time}."></textarea>
+                <label><input type="checkbox" id="settingSmsLastOut" /> Last OUT</label>
+                <textarea id="settingSmsLastOutTemplate" class="settings-textarea" rows="2" placeholder="Hello {name}, your OUT scan was recorded at {time}."></textarea>
+              </div>
+            </div>
+            <div class="settings-item settings-item-wide">
+              <div class="settings-item-main">
+                <div class="settings-item-title">Message a Student</div>
+                <div class="settings-item-desc">Send a message immediately to a student's registered phone number. SIM900A is used first, with TextBee as fallback when enabled.</div>
+              </div>
+              <div class="settings-item-control settings-sms-control">
+                <select id="settingSmsStudent" class="settings-select">
+                  <option value="">Select a student</option>
+                </select>
+                <textarea id="settingSmsCustomTemplate" class="settings-textarea" rows="3" placeholder="Example: Hello {name}, please contact the school office."></textarea>
+                <button type="button" class="btn secondary compact" id="sendStudentSmsBtn">Send SMS Now</button>
+                <div id="smsCustomMessagesList" class="sms-custom-list"></div>
+              </div>
+            </div>
             <div class="form-actions">
               <button type="button" class="btn" id="saveSettingsBtn">Save Settings</button>
               <span class="status-pill" id="settingsStatus"></span>
@@ -946,6 +995,7 @@ if (!isset($_SESSION['admin_uid'])) {
       </div>
     </main>
 
+    <?php if ($isMasterAdmin): ?>
     <div id="userProfileModal" class="profile-modal" role="region" aria-labelledby="profileName">
       <div class="profile-backdrop" data-close-profile></div>
       <div class="profile-panel">
@@ -1023,6 +1073,7 @@ if (!isset($_SESSION['admin_uid'])) {
         </div>
       </div>
     </div>
+    <?php endif; ?>
 
   </div>
 
@@ -1068,13 +1119,23 @@ if (!isset($_SESSION['admin_uid'])) {
     const adminStatsGridEl = document.getElementById('adminStatsGrid');
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
-const personalAdminFilterEl = document.getElementById('personalAdminFilter');
+    const isMasterAdmin = <?php echo $isMasterAdmin ? 'true' : 'false'; ?>;
+    const allowedTabs = new Set(['dashboardTab', 'registerTab', 'dailyLogsTab', 'settingsTab']);
+    const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const personalUserSelectEl = document.getElementById('personalUserSelect');
     const personalUserLogsEl = document.getElementById('personalUserLogs');
     const personalUserAdminTagsEl = document.getElementById('personalUserAdminTags');
     const registerFormEl = document.getElementById('registerForm');
     const registerStatusEl = document.getElementById('registerStatus');
     const scanPromptEl = document.getElementById('scanPrompt');
+    const scanPromptTitleEl = document.getElementById('scanPromptTitle');
+    const scanPromptTextEl = document.getElementById('scanPromptText');
+    const editScanBtnEl = document.getElementById('editScanBtn');
+    const registeredViewTitleEl = document.getElementById('registeredViewTitle');
+    const registerModeTabs = document.querySelectorAll('.register-mode-tab');
+    let registerMode = 'register';
+    let editScanWaiting = false;
+    let editScanStartId = 0;
     const registeredViewEl = document.getElementById('registeredView');
     const registerFormWrapEl = document.getElementById('registerFormWrap');
     const editRegisteredEl = document.getElementById('editRegistered');
@@ -1099,15 +1160,21 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const viewPurposeEl = document.getElementById('viewPurpose');
     const viewValidUntilEl = document.getElementById('viewValidUntil');
     const viewPhotoEl = document.getElementById('viewPhoto');
-    viewPhotoEl.onerror = function() {
-      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-    };
+    if (viewPhotoEl) {
+      viewPhotoEl.onerror = function() {
+        this.onerror = null;
+        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      };
+    }
     const idCardDisplayEl = document.getElementById('idCardDisplay');
     const idCardPhotoEl = document.getElementById('idCardPhoto');
-    idCardPhotoEl.onerror = function() {
-      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-    };
+    if (idCardPhotoEl) {
+      idCardPhotoEl.onerror = function() {
+        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      };
+    }
     const idCardNameEl = document.getElementById('idCardName');
+    const idCardDepartmentEl = document.getElementById('idCardDepartment');
     const idCardRoleEl = document.getElementById('idCardRole');
     const idCardIdEl = document.getElementById('idCardId');
     const idCardPlaceholderEl = document.getElementById('idCardPlaceholder');
@@ -1115,10 +1182,12 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const profileLoadingEl = document.getElementById('profileLoading');
     const profileContentEl = document.getElementById('profileContent');
     const profilePhotoEl = document.getElementById('profilePhoto');
-    profilePhotoEl.onerror = function() {
-      this.onerror = null;
-      this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
-    };
+    if (profilePhotoEl) {
+      profilePhotoEl.onerror = function() {
+        this.onerror = null;
+        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      };
+    }
     const profileRoleEl = document.getElementById('profileRole');
     const profileNameEl = document.getElementById('profileName');
     const profileIdentifierEl = document.getElementById('profileIdentifier');
@@ -1141,6 +1210,14 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     const settingRefreshInsideEl = document.getElementById('settingRefreshInside');
     const settingRefreshSuspiciousEl = document.getElementById('settingRefreshSuspicious');
     const settingDailyResetHourEl = document.getElementById('settingDailyResetHour');
+    const settingSmsFirstInEl = document.getElementById('settingSmsFirstIn');
+    const settingSmsFirstInTemplateEl = document.getElementById('settingSmsFirstInTemplate');
+    const settingSmsLastOutEl = document.getElementById('settingSmsLastOut');
+    const settingSmsLastOutTemplateEl = document.getElementById('settingSmsLastOutTemplate');
+    const settingSmsStudentEl = document.getElementById('settingSmsStudent');
+    const settingSmsCustomTemplateEl = document.getElementById('settingSmsCustomTemplate');
+    const sendStudentSmsBtnEl = document.getElementById('sendStudentSmsBtn');
+    const smsCustomMessagesListEl = document.getElementById('smsCustomMessagesList');
     const saveSettingsBtn = document.getElementById('saveSettingsBtn');
     const dailyReportDateEl = document.getElementById('dailyReportDate');
     const dailyAdminFilterEl = document.getElementById('dailyAdminFilter');
@@ -1890,6 +1967,9 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     }
 
     function setActiveTab(tabId) {
+      if (!isMasterAdmin && !allowedTabs.has(tabId)) {
+        return;
+      }
       tabContents.forEach(tab => tab.classList.remove('active'));
       tabButtons.forEach(btn => btn.classList.remove('active'));
       const activeTab = document.getElementById(tabId);
@@ -1952,6 +2032,36 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       showUnregistered(uid, scannedAt);
     }
 
+    function setRegisterMode(mode) {
+      registerMode = mode === 'edit' ? 'edit' : 'register';
+      editScanWaiting = false;
+      registerModeTabs.forEach(tab => {
+        const isActive = tab.dataset.registerMode === registerMode;
+        tab.classList.toggle('active', isActive);
+        tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      if (scanPromptTitleEl) {
+        scanPromptTitleEl.textContent = registerMode === 'edit'
+          ? 'Scan a Registered RFID Card'
+          : 'Scan an RFID Card';
+      }
+      if (scanPromptTextEl) {
+        scanPromptTextEl.textContent = registerMode === 'edit'
+          ? 'Hold a registered card near the reader to load its details for editing.'
+          : 'Hold the card near the reader to load person details.';
+      }
+      if (registeredViewTitleEl) {
+        registeredViewTitleEl.textContent = registerMode === 'edit'
+          ? 'Card Details'
+          : 'Registered Person';
+      }
+      if (editScanBtnEl) {
+        editScanBtnEl.classList.toggle('hidden', registerMode !== 'edit');
+        editScanBtnEl.textContent = 'Scan Card to Edit';
+      }
+      showPrompt();
+    }
+
     function showPrompt() {
       scanPromptEl.classList.remove('hidden');
       registeredViewEl.classList.add('hidden');
@@ -1980,16 +2090,28 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       viewEmailEl.value = user.email || '';
       viewRoleEl.value = user.role || '';
       viewPhotoEl.src = getProfilePhotoSrc(user.photo);
+      editRegisteredEl.disabled = !isMasterAdmin && user.role !== 'visitor';
+      editRegisteredEl.textContent = editRegisteredEl.disabled
+        ? 'Only visitor cards can be edited'
+        : 'Edit Details';
       registerStatusEl.textContent = '';
     }
 
     function showUnregistered(uid, scannedAt) {
       scanPromptEl.classList.add('hidden');
       registeredViewEl.classList.add('hidden');
+      if (registerMode === 'edit') {
+        scanPromptEl.classList.remove('hidden');
+        registerStatusEl.textContent = 'This card is not registered yet. Use Register New Card to add it.';
+        return;
+      }
       registerFormWrapEl.classList.remove('hidden');
       currentRegisteredUser = null;
       regUidEl.value = uid || '';
       regUidEl.readOnly = true;
+      if (!isMasterAdmin) {
+        document.getElementById('regRole').value = 'visitor';
+      }
       updateRoleFields(document.getElementById('regRole').value || 'student');
       registerStatusEl.textContent = '';
       setActiveTab('registerTab');
@@ -1997,6 +2119,10 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
     function showEditFormFromUser(user) {
       if (!user) {
+        return;
+      }
+      if (!isMasterAdmin && user.role !== 'visitor') {
+        registerStatusEl.textContent = 'Regular admins can only edit visitor cards';
         return;
       }
       scanPromptEl.classList.add('hidden');
@@ -2018,12 +2144,16 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       document.getElementById('regEmail').value = user.email || '';
       document.getElementById('regRole').value = user.role || 'student';
       updateRoleFields(user.role || 'student');
-      registerStatusEl.textContent = 'Editing registered student';
+      registerStatusEl.textContent = `Editing registered ${user.role} card`;
       regPhotoPreviewEl.src = getProfilePhotoSrc(user.photo);
       setActiveTab('registerTab');
     }
 
     function updateRoleFields(role) {
+      if (!isMasterAdmin && role !== 'visitor') {
+        role = 'visitor';
+        document.getElementById('regRole').value = role;
+      }
       const roles = ['student', 'faculty', 'staff', 'visitor'];
       roles.forEach(item => {
         document.querySelectorAll(`.role-${item}`).forEach(el => {
@@ -2038,7 +2168,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       regStaffIdEl.required = role === 'staff';
     }
 
-    async function loadUserDetails(uid) {
+    async function loadUserDetails(uid, showEdit = false) {
       if (!uid) {
         return;
       }
@@ -2046,7 +2176,11 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         const res = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
         const data = await res.json();
         if (data.ok && data.data) {
-          showRegistered(data.data);
+          if (showEdit) {
+            showEditFormFromUser(data.data);
+          } else {
+            showRegistered(data.data);
+          }
         } else {
           showUnregistered(uid, '');
         }
@@ -2220,6 +2354,9 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           idCardPhotoEl.src = getProfilePhotoSrc(user.photo);
           
            idCardNameEl.textContent = (user.name || 'Unknown').toUpperCase();
+          if (idCardDepartmentEl) {
+            idCardDepartmentEl.textContent = user.department || (user.role === 'student' ? user.course || '' : '');
+          }
 
           idCardRoleEl.textContent = (user.role || '').charAt(0).toUpperCase() + (user.role || '').slice(1);
 
@@ -2542,8 +2679,12 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           const createdAt = row.created_at || '';
           const adminDisplay = row.admin_name ? row.admin_name : (row.admin_uid ? row.admin_uid : '');
           const deptDisplay = row.department ? row.department : '';
-          const suspiciousBadge = row.suspicious == 1 ? '<span class="suspicious-badge">âš </span>' : '';
-          const trClass = row.suspicious == 1 ? 'class="suspicious-row"' : '';
+          const roleClass = row.role === 'admin' && row.admin_role === 'master'
+            ? 'scan-role-master'
+            : `scan-role-${String(row.role || 'unknown').toLowerCase()}`;
+          const rowClasses = [roleClass];
+          if (row.suspicious == 1) rowClasses.push('suspicious-row');
+          const trClass = `class="${rowClasses.join(' ')}"`;
           const profileAttribute = name !== 'New User' && uid ? ` data-profile-uid="${escapeHtml(uid)}"` : '';
           let userDisplay = name === 'New User'
             ? `<button type="button" class="scan-register-btn" data-register-uid="${escapeHtml(uid)}" data-register-time="${escapeHtml(createdAt)}">Register</button>`
@@ -2551,7 +2692,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
           // add data attributes so we can target the newest scan row for animation
           newHtml += `<tr ${trClass}${profileAttribute} data-scan-id="${escapeHtml(row.id)}" data-direction="${escapeHtml(dir)}">
-            <td>${userDisplay}${suspiciousBadge}</td>
+            <td>${userDisplay}</td>
             <td>${escapeHtml(dir)}</td>
             <td>${escapeHtml(uid)}</td>
             <td>${escapeHtml(deptDisplay)}</td>
@@ -2570,6 +2711,17 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
 
         rowsEl.innerHTML = newHtml;
         statusEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
+
+        // Registered cards are logged directly as scans, so use the next scan
+        // after the edit button was armed as the card to load.
+        if (editScanWaiting && newestScan && parseInt(newestScan.id) > editScanStartId) {
+          editScanWaiting = false;
+          if (editScanBtnEl) {
+            editScanBtnEl.textContent = 'Scan Card to Edit';
+          }
+          registerStatusEl.textContent = `Loading card ${newestScan.uid}...`;
+          await loadUserDetails(newestScan.uid, true);
+        }
 
         // highlight the newest scan row with a glow animation
         if (newestScan) {
@@ -2705,7 +2857,18 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         if (Number.isFinite(signalMs) && signalMs < registerSignalStartMs - 5000) {
           return;
         }
-        showUnregistered(signal.uid, signal.created_at || '');
+        if (registerMode === 'edit') {
+          if (!editScanWaiting) {
+            return;
+          }
+          editScanWaiting = false;
+          if (editScanBtnEl) {
+            editScanBtnEl.textContent = 'Scan Card to Edit';
+          }
+          await loadUserDetails(signal.uid, true);
+        } else {
+          showUnregistered(signal.uid, signal.created_at || '');
+        }
       } catch (err) {
         // ignore
       }
@@ -2726,6 +2889,13 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
         statusEl.textContent = `Admin scan detected: ${signal.name || signal.uid}`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 4000);
         loadScans();
+        if (signal.edit_mode && registerMode === 'edit' && editScanWaiting) {
+          editScanWaiting = false;
+          if (editScanBtnEl) {
+            editScanBtnEl.textContent = 'Scan Card to Edit';
+          }
+          loadUserDetails(signal.uid, true);
+        }
       } catch (err) {
         // ignore
       }
@@ -2849,6 +3019,9 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     }
 
     document.getElementById('regRole').addEventListener('change', (event) => {
+      if (!isMasterAdmin && event.target.value !== 'visitor') {
+        event.target.value = 'visitor';
+      }
       updateRoleFields(event.target.value);
     });
 
@@ -2869,6 +3042,21 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     editRegisteredEl.addEventListener('click', () => {
       showEditFormFromUser(currentRegisteredUser);
     });
+
+    registerModeTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        setRegisterMode(tab.dataset.registerMode);
+      });
+    });
+
+    if (editScanBtnEl) {
+      editScanBtnEl.addEventListener('click', () => {
+        editScanWaiting = true;
+        editScanStartId = lastScanId;
+        editScanBtnEl.textContent = 'Waiting for card...';
+        registerStatusEl.textContent = 'Waiting for a registered card scan.';
+      });
+    }
 
     async function loadPersonalAdmins() {
       if (!personalAdminFilterEl) {
@@ -2976,8 +3164,10 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     loadPersonalAdmins();
     loadAdmins();
     loadReportAdmins();
-    loadAdminStats();
-    loadStorageStats();
+    if (isMasterAdmin) {
+      loadAdminStats();
+      loadStorageStats();
+    }
     loadScans();
     loadSuspicious();
     showPrompt();
@@ -3305,8 +3495,48 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       refresh_today_scan: 5,
       refresh_inside_now: 5,
       refresh_suspicious_alerts: 10,
-      daily_reset_hour: 0
+      daily_reset_hour: 0,
+      sms_first_in_enabled: '1',
+      sms_first_in_template: 'Hello {name}, your first IN scan today was recorded at {time}.',
+      sms_last_out_enabled: '1',
+      sms_last_out_template: 'Hello {name}, your OUT scan was recorded at {time}.',
+      sms_custom_messages: '{}'
     };
+
+    let smsCustomMessages = {};
+
+    function normalizeSmsUid(uid) {
+      return String(uid || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+    }
+
+    function renderSmsCustomMessages() {
+      if (!smsCustomMessagesListEl) return;
+      const entries = Object.entries(smsCustomMessages);
+      smsCustomMessagesListEl.innerHTML = entries.length
+        ? entries.map(([uid, message]) => `<div class="sms-custom-row"><span>${escapeHtml(uid)}</span><span>${escapeHtml(message)}</span><button type="button" class="btn secondary compact" data-remove-sms-uid="${escapeHtml(uid)}">Remove</button></div>`).join('')
+        : '<span class="muted">No custom student messages.</span>';
+      smsCustomMessagesListEl.querySelectorAll('[data-remove-sms-uid]').forEach(button => {
+        button.addEventListener('click', () => {
+          delete smsCustomMessages[button.dataset.removeSmsUid];
+          renderSmsCustomMessages();
+        });
+      });
+    }
+
+    async function loadSmsStudents() {
+      if (!settingSmsStudentEl) return;
+      try {
+        const res = await fetch('../api/users/get_users.php');
+        const data = await res.json();
+        if (!data.ok || !Array.isArray(data.data)) return;
+        settingSmsStudentEl.innerHTML = '<option value="">Select a student</option>' +
+          data.data.filter(user => user.role === 'student').map(user =>
+            `<option value="${escapeHtml(normalizeSmsUid(user.uid))}">${escapeHtml(user.name || user.uid)} (${escapeHtml(user.uid)})</option>`
+          ).join('');
+      } catch (err) {
+        if (settingsStatusEl) settingsStatusEl.textContent = 'Unable to load students';
+      }
+    }
 
     function applySettings(settings) {
       if (!settings) return;
@@ -3318,6 +3548,17 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
       if (settingRefreshInsideEl) settingRefreshInsideEl.value = settingsData.refresh_inside_now || 5;
       if (settingRefreshSuspiciousEl) settingRefreshSuspiciousEl.value = settingsData.refresh_suspicious_alerts || 10;
       if (settingDailyResetHourEl) settingDailyResetHourEl.value = settingsData.daily_reset_hour ?? 0;
+      if (settingSmsFirstInEl) settingSmsFirstInEl.checked = settingsData.sms_first_in_enabled !== '0';
+      if (settingSmsFirstInTemplateEl) settingSmsFirstInTemplateEl.value = settingsData.sms_first_in_template || '';
+      if (settingSmsLastOutEl) settingSmsLastOutEl.checked = settingsData.sms_last_out_enabled !== '0';
+      if (settingSmsLastOutTemplateEl) settingSmsLastOutTemplateEl.value = settingsData.sms_last_out_template || '';
+      try {
+        smsCustomMessages = JSON.parse(settingsData.sms_custom_messages || '{}');
+        if (!smsCustomMessages || typeof smsCustomMessages !== 'object' || Array.isArray(smsCustomMessages)) smsCustomMessages = {};
+      } catch (err) {
+        smsCustomMessages = {};
+      }
+      renderSmsCustomMessages();
 
       document.body.classList.remove('dark-mode');
       document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
@@ -3350,7 +3591,12 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           refresh_today_scan: settingRefreshTodayEl ? settingRefreshTodayEl.value : 5,
           refresh_inside_now: settingRefreshInsideEl ? settingRefreshInsideEl.value : 5,
           refresh_suspicious_alerts: settingRefreshSuspiciousEl ? settingRefreshSuspiciousEl.value : 10,
-          daily_reset_hour: settingDailyResetHourEl ? settingDailyResetHourEl.value : 0
+          daily_reset_hour: settingDailyResetHourEl ? settingDailyResetHourEl.value : 0,
+          sms_first_in_enabled: settingSmsFirstInEl && settingSmsFirstInEl.checked ? '1' : '0',
+          sms_first_in_template: settingSmsFirstInTemplateEl ? settingSmsFirstInTemplateEl.value : '',
+          sms_last_out_enabled: settingSmsLastOutEl && settingSmsLastOutEl.checked ? '1' : '0',
+          sms_last_out_template: settingSmsLastOutTemplateEl ? settingSmsLastOutTemplateEl.value : '',
+          sms_custom_messages: JSON.stringify(smsCustomMessages)
         };
         try {
           const res = await fetch('../api/system/save_settings.php', {
@@ -3368,6 +3614,38 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
           }
         } catch (err) {
           if (settingsStatusEl) settingsStatusEl.textContent = 'Network error';
+        }
+      });
+    }
+
+    if (sendStudentSmsBtnEl) {
+      sendStudentSmsBtnEl.addEventListener('click', async () => {
+        const uid = settingSmsStudentEl ? settingSmsStudentEl.value : '';
+        const message = settingSmsCustomTemplateEl ? settingSmsCustomTemplateEl.value.trim() : '';
+        if (!uid) {
+          if (settingsStatusEl) settingsStatusEl.textContent = 'Select a student first';
+          return;
+        }
+        sendStudentSmsBtnEl.disabled = true;
+        if (settingsStatusEl) settingsStatusEl.textContent = 'Sending...';
+        try {
+          const res = await fetch('../api/admin/send_student_sms.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, message })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            if (settingsStatusEl) settingsStatusEl.textContent = data.error || 'SMS failed';
+            return;
+          }
+          if (settingsStatusEl) settingsStatusEl.textContent =
+            data.action === 'queued_for_sim900a' ? 'Queued for SIM900A' : 'SMS sent';
+          if (settingSmsCustomTemplateEl) settingSmsCustomTemplateEl.value = '';
+        } catch (err) {
+          if (settingsStatusEl) settingsStatusEl.textContent = 'Network error';
+        } finally {
+          sendStudentSmsBtnEl.disabled = false;
         }
       });
     }
@@ -3419,6 +3697,7 @@ const personalAdminFilterEl = document.getElementById('personalAdminFilter');
     }
 
     loadSettings();
+    loadSmsStudents();
     restartPollingIntervals();
   </script>
 </body>

@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth.php';
 
 function ensure_settings_table(mysqli $mysqli): bool {
     $sql = "CREATE TABLE IF NOT EXISTS settings (
@@ -11,13 +12,7 @@ function ensure_settings_table(mysqli $mysqli): bool {
     return (bool) $mysqli->query($sql);
 }
 
-session_start();
-$admin_uid = $_SESSION['admin_uid'] ?? null;
-if (!$admin_uid) {
-    http_response_code(401);
-    echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_master_admin();
 
 $raw = file_get_contents('php://input');
 $data = json_decode($raw, true);
@@ -34,6 +29,11 @@ $allowed = [
     'refresh_inside_now',
     'refresh_suspicious_alerts',
     'daily_reset_hour',
+    'sms_first_in_enabled',
+    'sms_first_in_template',
+    'sms_last_out_enabled',
+    'sms_last_out_template',
+    'sms_custom_messages',
 ];
 
 if (!ensure_settings_table($mysqli)) {

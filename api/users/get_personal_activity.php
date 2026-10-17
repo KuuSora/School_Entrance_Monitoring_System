@@ -1,6 +1,8 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
+require_once __DIR__ . '/../system/auth.php';
+require_admin_session();
 
 $uid = isset($_GET['uid']) ? trim($_GET['uid']) : '';
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 200;

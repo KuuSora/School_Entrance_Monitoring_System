@@ -93,4 +93,11 @@ if (!$user) {
     exit;
 }
 
+if (!empty($user['photo'])) {
+    $photoPath = __DIR__ . '/../../uploads/' . basename($user['photo']);
+    if (!is_file($photoPath)) {
+        $user['photo'] = null;
+    }
+}
+
 echo json_encode(['ok' => true, 'data' => $user]);

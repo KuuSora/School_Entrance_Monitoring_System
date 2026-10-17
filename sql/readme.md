@@ -158,7 +158,7 @@ Key Data Model:
 - faculty(uid, name, faculty_id, department, email, phone, notes)
 - staff(uid, name, staff_id, department, email, phone, notes)
 - visitors(uid, name, purpose, valid_until, email, phone, notes)
-- admins(uid, name)
+- admins(uid, name, admin_role)
 - scans(id, uid, direction, admin_uid, created_at)
 - admin_uid_rejections(id, posted_admin_uid, scanned_uid, direction, reason, ip, user_agent, created_at)
 
@@ -174,6 +174,24 @@ Core API Endpoints:
 - migrate_backfill_admin_uid.php: backfills scans admin_uid.
 - migrate_create_admin_rejections.php: ensures admin_uid_rejections table.
 - migrate_add_email_columns.php: adds email columns + admin_uid to scans if missing.
+
+## Admin access levels
+
+The `admins.admin_role` column supports two card types:
+
+- `master`: one card with access to every dashboard tab and report.
+- `admin`: regular cards with access to Live Preview, Register, Daily Logs, and Settings.
+
+When an existing database first uses the updated `admin_login.php`, the first
+admin (ordered by UID) is promoted to `master` if no master card exists. Verify
+that this is the intended card, then assign roles explicitly if needed:
+
+```sql
+UPDATE admins SET admin_role = 'admin';
+UPDATE admins SET admin_role = 'master' WHERE uid = 'MASTER_CARD_UID';
+```
+
+Only one row should have `admin_role = 'master'`.
 
 Scan Flow:
 1) ESP32 reads card -> posts uid + gpio (5=OUT, 25=IN) to log_scan.php.

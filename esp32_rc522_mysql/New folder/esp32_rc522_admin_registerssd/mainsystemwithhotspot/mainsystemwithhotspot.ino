@@ -4,6 +4,7 @@
 #include <MFRC522.h>
 #include <Preferences.h>
 #include "esp_wifi.h"
+#include <HardwareSerial.h>
 
 // ===================== WIRING =====================
 // SPI bus shared: SCK=18, MOSI=23, MISO=19 (hardware SPI2)
@@ -17,6 +18,10 @@
 #define RELAY_M1     21   // IN solenoid (left)
 #define RELAY_M2     26   // OUT solenoid (right)
 #define BUZZER_PIN   14   // Active HIGH buzzer for access granted
+// SIM900A UART2: module TX -> ESP32 RX, module RX -> ESP32 TX.
+#define SIM900A_RX_PIN 16
+#define SIM900A_TX_PIN 32
+#define SIM900A_BAUD 9600
 // =========================================================
 
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
@@ -55,6 +60,7 @@ const unsigned long BUZZER_DURATION_MS = 1000;
 
 MFRC522 mfrc522In(SS_PIN_IN, RST_PIN_IN);
 MFRC522 mfrc522Out(SS_PIN_OUT, RST_PIN_OUT);
+HardwareSerial sim900a(2);
 
 bool networkReady() {
   return WiFi.status() == WL_CONNECTED;
@@ -230,7 +236,7 @@ const char* httpCodeToTextLocal(int code) {
   }
 }
 
-bool httpPost(const String& url, const String& body, int& outCode) {
+bool httpPost(const String& url, const String& body, int& outCode, String* responseOut = nullptr) {
   if (!networkReady()) return false;
   HTTPClient http;
   http.begin(url);
@@ -238,6 +244,9 @@ bool httpPost(const String& url, const String& body, int& outCode) {
   http.setTimeout(3000);
   outCode = http.POST(body);
   String resp = http.getString();
+  if (responseOut != nullptr) {
+    *responseOut = resp;
+  }
   if (DEBUG_SERIAL) {
     Serial.print("POST "); Serial.println(url);
     Serial.print("HTTP "); Serial.print(outCode); Serial.print(" "); Serial.println(httpCodeToTextLocal(outCode));
@@ -247,13 +256,16 @@ bool httpPost(const String& url, const String& body, int& outCode) {
   return outCode == HTTP_CODE_OK;
 }
 
-bool httpGet(const String& url, int& outCode) {
+bool httpGet(const String& url, int& outCode, String* responseOut = nullptr) {
   if (!networkReady()) return false;
   HTTPClient http;
   http.begin(url);
   http.setTimeout(3000);
   outCode = http.GET();
   String resp = http.getString();
+  if (responseOut != nullptr) {
+    *responseOut = resp;
+  }
   if (DEBUG_SERIAL) {
     Serial.print("GET "); Serial.println(url);
     Serial.print("HTTP "); Serial.print(outCode); Serial.print(" "); Serial.println(httpCodeToTextLocal(outCode));
@@ -282,14 +294,94 @@ bool postSignal(const String& url, const String& uid) {
   return httpPost(url, body, code);
 }
 
+String jsonStringValue(const String& json, const String& key) {
+  String marker = "\"" + key + "\":\"";
+  int start = json.indexOf(marker);
+  if (start < 0) return "";
+  start += marker.length();
+  int end = json.indexOf('"', start);
+  if (end < 0) return "";
+  String value = json.substring(start, end);
+  value.replace("\\\"", "\"");
+  value.replace("\\\\", "\\");
+  return value;
+}
+
+bool waitForModem(const char* expected, unsigned long timeoutMs) {
+  unsigned long started = millis();
+  String buffer;
+  while (millis() - started < timeoutMs) {
+    while (sim900a.available()) {
+      buffer += (char)sim900a.read();
+      if (buffer.indexOf(expected) >= 0) return true;
+    }
+    delay(5);
+  }
+  return false;
+}
+
+bool sendSmsViaSim900a(const String& phone, const String& message) {
+  if (phone.length() == 0 || message.length() == 0) return false;
+
+  while (sim900a.available()) sim900a.read();
+  sim900a.println("AT");
+  if (!waitForModem("OK", 1500)) {
+    Serial.println("[SIM900A] No modem response");
+    return false;
+  }
+
+  sim900a.println("AT+CMGF=1");
+  if (!waitForModem("OK", 1500)) return false;
+
+  sim900a.print("AT+CMGS=\"");
+  sim900a.print(phone);
+  sim900a.println("\"");
+  if (!waitForModem(">", 5000)) {
+    Serial.println("[SIM900A] No SMS prompt");
+    return false;
+  }
+
+  sim900a.print(message);
+  sim900a.write(26);
+  bool sent = waitForModem("OK", 15000);
+  Serial.println(sent ? "[SIM900A] SMS sent" : "[SIM900A] SMS failed");
+  return sent;
+}
+
+void pollPendingSms() {
+  static unsigned long lastPoll = 0;
+  if (millis() - lastPoll < 5000 || !networkReady()) return;
+  lastPoll = millis();
+
+  int code = -1;
+  String response;
+  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
+  if (!httpGet(url, code, &response)) return;
+
+  String phone = jsonStringValue(response, "phone");
+  String message = jsonStringValue(response, "message");
+  if (phone.length() > 0 && message.length() > 0) {
+    sendSmsViaSim900a(phone, message);
+  }
+}
+
 bool logScan(const String& uid, const String& direction, const String& adminUid) {
   int code = -1;
+  String response;
   String url = buildEndpointUrl(SUBFOLDER_SCANS, "log_scan.php");
   String body = "uid=" + uid + "&direction=" + direction;
   if (adminUid.length() > 0) {
     body += "&admin_uid=" + adminUid;
   }
-  return httpPost(url, body, code);
+  bool posted = httpPost(url, body, code, &response);
+  if (posted && (direction == "IN" || direction == "OUT")) {
+    String smsPhone = jsonStringValue(response, "sim900a_phone");
+    String smsMessage = jsonStringValue(response, "sim900a_message");
+    if (smsPhone.length() > 0 && smsMessage.length() > 0) {
+      sendSmsViaSim900a(smsPhone, smsMessage);
+    }
+  }
+  return posted;
 }
 
 void triggerBuzzer() {
@@ -410,6 +502,8 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
 void setup() {
   Serial.begin(115200);
   delay(100);
+  sim900a.begin(SIM900A_BAUD, SERIAL_8N1, SIM900A_RX_PIN, SIM900A_TX_PIN);
+  Serial.println("[SIM900A] UART2 initialized");
 
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
@@ -470,6 +564,7 @@ void setup() {
 
 void loop() {
   handleSerialCommands();
+  pollPendingSms();
 
   if (inUnlocked && (millis() - inUnlockTime >= UNLOCK_TIMEOUT)) {
     lockIn();

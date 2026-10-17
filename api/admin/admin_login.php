@@ -1,6 +1,13 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
+require_once __DIR__ . '/../system/auth.php';
+
+if (!ensure_admin_roles($mysqli)) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Admin roles are not configured']);
+    exit;
+}
 
 $active_admin_file = __DIR__ . '/../state/active_admin.json';
 
@@ -64,7 +71,7 @@ if ($active_admin && !is_same_admin($uid_norm, $active_admin)) {
     exit;
 }
 
-$stmt = $mysqli->prepare("SELECT uid, name FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ? LIMIT 1");
+$stmt = $mysqli->prepare("SELECT uid, name, admin_role FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ? LIMIT 1");
 $stmt->bind_param('s', $uid_norm);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -80,10 +87,15 @@ if (!$admin) {
 session_start();
 $_SESSION['admin_uid'] = $admin['uid'];
 $_SESSION['admin_name'] = $admin['name'];
+$_SESSION['admin_role'] = $admin['admin_role'] === 'master' ? 'master' : 'admin';
 save_active_admin($active_admin_file, $admin['uid'], $admin['name']);
 
 // clear any auto-login block
 $block_file = __DIR__ . '/../state/auto_login_block.json';
 if (file_exists($block_file)) @unlink($block_file);
 
-echo json_encode(['ok' => true, 'name' => $admin['name']]);
+echo json_encode([
+    'ok' => true,
+    'name' => $admin['name'],
+    'role' => $_SESSION['admin_role']
+]);

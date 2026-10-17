@@ -26,6 +26,11 @@ $defaults = [
     'refresh_inside_now' => '5',
     'refresh_suspicious_alerts' => '10',
     'daily_reset_hour' => '0',
+    'sms_first_in_enabled' => '1',
+    'sms_first_in_template' => 'Hello {name}, your first IN scan today was recorded at {time}.',
+    'sms_last_out_enabled' => '1',
+    'sms_last_out_template' => 'Hello {name}, your OUT scan was recorded at {time}.',
+    'sms_custom_messages' => '{}',
 ];
 
 $settings = $defaults;

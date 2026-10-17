@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['dev_login'])) {
 
   $_SESSION['admin_uid'] = 'LOCAL-DEV';
   $_SESSION['admin_name'] = 'Local Dev';
+  $_SESSION['admin_role'] = 'master';
   header('Location: index.php');
   exit;
 }
@@ -327,14 +328,6 @@ body::before {
           <div class="pill" id="pillState"><span class="pulse"></span>Listening for RFID scans</div>
         </div>
         <p class="card-sub">Tip: keep the card steady on the reader for 1-2 seconds.</p>
-        <?php if (is_local_dev_request()): ?>
-          <div class="dev-login">
-            <form method="post">
-              <button type="submit" name="dev_login" value="1" class="dev-login-btn">Local Dev Login</button>
-            </form>
-            <p class="dev-login-note">Localhost only. Use this to open the dashboard while developing on this machine.</p>
-          </div>
-        <?php endif; ?>
       </aside>
     </div>
   </div>
@@ -448,6 +441,4 @@ body::before {
   </script>
 </body>
 </html>
-
-
 

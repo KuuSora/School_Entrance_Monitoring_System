@@ -155,16 +155,95 @@ if (!$ok) {
     exit;
 }
 
-$smsResult = ['ok' => true, 'action' => 'skipped', 'reason' => 'No phone or not IN'];
-if ($phone !== '' && $direction === 'IN') {
+    $smsResult = ['ok' => true, 'action' => 'skipped', 'reason' => 'SMS not configured for this event'];
+$smsPayload = null;
+    if ($phone !== '') {
     $scanTime = date('Y-m-d H:i:s');
-    $smsResult = send_scan_sms($mysqli, $phone, $name, $direction, $uid, $scanTime);
-}
+        $settings = [];
+        $settingsResult = $mysqli->query("SELECT setting_key, setting_value FROM settings");
+        if ($settingsResult) {
+            while ($setting = $settingsResult->fetch_assoc()) {
+                $settings[$setting['setting_key']] = $setting['setting_value'];
+            }
+            $settingsResult->free();
+        }
+
+        $customMessages = json_decode((string)($settings['sms_custom_messages'] ?? '{}'), true);
+        $customTemplate = is_array($customMessages)
+            ? ($customMessages[$uid_norm] ?? null)
+            : null;
+        $firstInEnabled = ($settings['sms_first_in_enabled'] ?? '1') === '1';
+        $lastOutEnabled = ($settings['sms_last_out_enabled'] ?? '1') === '1';
+        $eventType = $direction === 'IN' ? 'first_in' : ($direction === 'OUT' ? 'last_out' : '');
+        $enabled = $direction === 'IN' ? $firstInEnabled : ($direction === 'OUT' ? $lastOutEnabled : false);
+        $template = $customTemplate ?: ($direction === 'IN'
+            ? ($settings['sms_first_in_template'] ?? 'Hello {name}, your first IN scan today was recorded at {time}.')
+            : ($settings['sms_last_out_template'] ?? 'Hello {name}, your OUT scan was recorded at {time}.'));
+        $alreadySent = false;
+
+        if (!$enabled || $eventType === '') {
+            $smsResult = ['ok' => true, 'action' => 'skipped', 'reason' => 'SMS event disabled'];
+        } else {
+            $stmt_sms_count = $mysqli->prepare(
+                "SELECT COUNT(*) AS cnt FROM notifications
+                 WHERE uid = ? AND event_type = ? AND status IN ('queued', 'sent')
+                 AND DATE(created_at) = CURDATE()"
+            );
+            $alreadySent = false;
+            if ($stmt_sms_count) {
+                $stmt_sms_count->bind_param('ss', $uid_norm, $eventType);
+                $stmt_sms_count->execute();
+                $countRow = $stmt_sms_count->get_result()->fetch_assoc();
+                $alreadySent = (int)($countRow['cnt'] ?? 0) > 0;
+                $stmt_sms_count->close();
+            }
+            if ($alreadySent) {
+                $smsResult = ['ok' => true, 'action' => 'suppressed', 'reason' => 'Already sent this event today'];
+            }
+        }
+
+        if ($enabled && $eventType !== '' && !$alreadySent) {
+            $message = strtr((string)$template, [
+                '{name}' => $name !== '' ? $name : 'there',
+                '{direction}' => $direction,
+                '{uid}' => $uid,
+                '{time}' => $scanTime,
+            ]);
+        $config = require __DIR__ . '/../system/config.php';
+        if (($config['sms_provider'] ?? 'textbee') === 'sim900a') {
+            $normalizedPhone = normalize_ph_number($phone);
+            if ($normalizedPhone) {
+                $stmt_sim_notification = $mysqli->prepare(
+                    "INSERT INTO notifications
+                     (uid, phone, message, event_type, provider, status, sent_at, last_attempt_at)
+                     VALUES (?, ?, ?, ?, 'sim900a', 'sent', NOW(), NOW())"
+                );
+                if ($stmt_sim_notification) {
+                    $stmt_sim_notification->bind_param('ssss', $uid_norm, $normalizedPhone, $message, $eventType);
+                    $stmt_sim_notification->execute();
+                    $stmt_sim_notification->close();
+                }
+                $smsPayload = [
+                    'phone' => $normalizedPhone,
+                    'message' => $message
+                ];
+                $smsResult = ['ok' => true, 'action' => 'delegated_to_sim900a'];
+            } else {
+                $smsResult = ['ok' => false, 'error' => 'Invalid Philippines phone number'];
+            }
+        } else {
+            $smsResult = send_scan_sms($mysqli, $phone, $name, $direction, $uid_norm, $scanTime, $message, $eventType);
+        }
+        }
+    }
 
 echo json_encode([
     'ok' => true,
     'message' => $message,
     'name' => $name,
     'direction' => $direction,
-    'sms' => $smsResult
+    'sms' => $smsResult,
+    'sms_payload' => $smsPayload,
+    'sim900a_phone' => $smsPayload['phone'] ?? null,
+    'sim900a_message' => $smsPayload['message'] ?? null
 ]);

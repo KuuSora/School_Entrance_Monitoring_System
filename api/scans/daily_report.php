@@ -1,12 +1,7 @@
 <?php
 require_once __DIR__ . '/../system/db.php';
-
-session_start();
-if (!isset($_SESSION['admin_uid'])) {
-    http_response_code(401);
-    echo 'Unauthorized';
-    exit;
-}
+require_once __DIR__ . '/../system/auth.php';
+require_admin_session();
 
 function get_reset_hour(mysqli $mysqli): int {
     $resetHour = 0;
@@ -45,6 +40,97 @@ function h(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+function grouped_report_rows(array $rows): array {
+    $grouped = [];
+    foreach ($rows as $row) {
+        $uid = (string) ($row['uid'] ?? '');
+        $key = $uid !== '' ? $uid : 'row-' . (string) ($row['id'] ?? count($grouped));
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [
+                'name' => (string) ($row['name'] ?? 'New User'),
+                'role' => (string) ($row['role'] ?? 'unknown'),
+                'department' => (string) ($row['department'] ?? ''),
+                'uid' => $uid,
+                'in_times' => [],
+                'out_times' => [],
+                'events' => [],
+                'in_count' => 0,
+                'out_count' => 0,
+                'suspicious' => false,
+                'admins' => [],
+            ];
+        }
+
+        $direction = strtoupper((string) ($row['direction'] ?? ''));
+        $createdAt = (string) ($row['created_at'] ?? '');
+        $time = format_datetime_for_report($createdAt);
+        $grouped[$key]['events'][] = [
+            'direction' => $direction,
+            'time' => $time,
+            'timestamp' => strtotime($createdAt) ?: null,
+        ];
+        if ($direction === 'IN') {
+            $grouped[$key]['in_times'][] = $time;
+            $grouped[$key]['in_count']++;
+        } elseif ($direction === 'OUT') {
+            $grouped[$key]['out_times'][] = $time;
+            $grouped[$key]['out_count']++;
+        }
+        if ((int) ($row['suspicious'] ?? 0) === 1) {
+            $grouped[$key]['suspicious'] = true;
+        }
+
+        $adminDisplay = (string) ($row['admin_name'] ?? '') !== ''
+            ? (string) $row['admin_name']
+            : (string) ($row['admin_uid'] ?? '');
+        if ($adminDisplay !== '' && !in_array($adminDisplay, $grouped[$key]['admins'], true)) {
+            $grouped[$key]['admins'][] = $adminDisplay;
+        }
+    }
+
+    foreach ($grouped as &$person) {
+        $openIn = null;
+        $sessions = [];
+        $totalSeconds = 0;
+        foreach ($person['events'] as $event) {
+            if ($event['direction'] === 'IN') {
+                if ($openIn !== null) {
+                    $sessions[] = $openIn['time'] . ' - No OUT recorded';
+                }
+                $openIn = $event;
+            } elseif ($event['direction'] === 'OUT') {
+                if ($openIn !== null) {
+                    $duration = '';
+                    if ($openIn['timestamp'] !== null && $event['timestamp'] !== null && $event['timestamp'] >= $openIn['timestamp']) {
+                        $seconds = $event['timestamp'] - $openIn['timestamp'];
+                        $totalSeconds += $seconds;
+                        $duration = sprintf(' (%dh %02dm)', intdiv($seconds, 3600), intdiv($seconds % 3600, 60));
+                    }
+                    $sessions[] = $openIn['time'] . ' - ' . $event['time'] . $duration;
+                    $openIn = null;
+                } else {
+                    $sessions[] = 'No IN recorded - ' . $event['time'];
+                }
+            }
+        }
+        if ($openIn !== null) {
+            $sessions[] = $openIn['time'] . ' - No OUT recorded';
+        }
+        $person['first_in'] = $person['in_times'] !== [] ? $person['in_times'][0] : '';
+        $person['last_out'] = $person['out_times'] !== [] ? $person['out_times'][count($person['out_times']) - 1] : '';
+        $person['sessions'] = implode("\n", $sessions);
+        $person['total_duration'] = sprintf('%dh %02dm', intdiv($totalSeconds, 3600), intdiv($totalSeconds % 3600, 60));
+        $person['scan_count'] = $person['in_count'] + $person['out_count'];
+        $person['in_times'] = implode("\n", $person['in_times']);
+        $person['out_times'] = implode("\n", $person['out_times']);
+        $person['admins'] = implode(', ', $person['admins']);
+        $person['suspicious'] = $person['suspicious'] ? 'Yes' : 'No';
+        unset($person['events']);
+    }
+    unset($person);
+    return array_values($grouped);
+}
+
 $dateValue = isset($_GET['date']) ? trim($_GET['date']) : '';
 $format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'print';
 if (!in_array($format, ['print', 'csv', 'xls'], true)) {
@@ -71,15 +157,16 @@ $whereClause = 'WHERE ' . implode(' AND ', $whereParts);
 $sql = "SELECT s.id, s.uid, s.direction, s.created_at, s.admin_uid,
                COALESCE(p.name, 'New User') AS name,
                COALESCE(p.role, 'unknown') AS role,
+               COALESCE(p.department, '') AS department,
                COALESCE(a.name, '') AS admin_name,
                CASE WHEN ss.cur_id IS NULL THEN 0 ELSE 1 END AS suspicious
         FROM scans s
         LEFT JOIN (
-            SELECT uid, name, 'student' AS role FROM students
-            UNION ALL SELECT uid, name, 'faculty' AS role FROM faculty
-            UNION ALL SELECT uid, name, 'staff' AS role FROM staff
-            UNION ALL SELECT uid, name, 'visitor' AS role FROM visitors
-            UNION ALL SELECT uid, name, 'admin' AS role FROM admins
+            SELECT uid, name, 'student' AS role, NULL AS department FROM students
+            UNION ALL SELECT uid, name, 'faculty' AS role, department FROM faculty
+            UNION ALL SELECT uid, name, 'staff' AS role, department FROM staff
+            UNION ALL SELECT uid, name, 'visitor' AS role, NULL AS department FROM visitors
+            UNION ALL SELECT uid, name, 'admin' AS role, NULL AS department FROM admins
         ) p ON s.uid = p.uid
         LEFT JOIN admins a ON s.admin_uid = a.uid
         LEFT JOIN (
@@ -124,6 +211,7 @@ foreach ($rows as $row) {
 }
 
 $downloadNameBase = 'daily_scan_log_' . $dayStart->format('Y-m-d');
+$groupedRows = grouped_report_rows($rows);
 
 if ($format === 'csv') {
     header('Content-Type: text/csv; charset=utf-8');
@@ -136,17 +224,22 @@ if ($format === 'csv') {
     fputcsv($output, ['Suspicious', $summary['suspicious']]);
     fputcsv($output, ['Unregistered', $summary['unregistered']]);
     fputcsv($output, []);
-    fputcsv($output, ['ID', 'Name', 'Role', 'Direction', 'UID', 'Admin', 'Time', 'Suspicious']);
-    foreach ($rows as $row) {
+    fputcsv($output, ['Name', 'Role', 'Department', 'UID', 'First IN', 'Last OUT', 'Sessions (IN - OUT)', 'Total Time Inside', 'IN Count', 'OUT Count', 'Total Scans', 'Suspicious', 'Admin(s)']);
+    foreach ($groupedRows as $row) {
         fputcsv($output, [
-            $row['id'],
             $row['name'],
             $row['role'],
-            $row['direction'],
+            $row['department'],
             $row['uid'],
-            $row['admin_name'] !== '' ? $row['admin_name'] : ($row['admin_uid'] ?: ''),
-            $row['created_at'],
-            (int) $row['suspicious'] === 1 ? 'Yes' : 'No'
+            $row['first_in'],
+            $row['last_out'],
+            $row['sessions'],
+            $row['total_duration'],
+            $row['in_count'],
+            $row['out_count'],
+            $row['scan_count'],
+            $row['suspicious'],
+            $row['admins']
         ]);
     }
     fclose($output);
@@ -157,21 +250,26 @@ if ($format === 'xls') {
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $downloadNameBase . '.xls"');
     echo '<html><head><meta charset="UTF-8"></head><body>';
-    echo '<table border="1"><tr><th colspan="8">Daily Scan Log - ' . h($reportLabel) . '</th></tr>';
-    echo '<tr><td><b>Total</b></td><td>' . (int) $summary['total'] . '</td><td><b>IN</b></td><td>' . (int) $summary['in'] . '</td><td><b>OUT</b></td><td>' . (int) $summary['out'] . '</td><td><b>Suspicious</b></td><td>' . (int) $summary['suspicious'] . '</td></tr>';
-    echo '<tr><td colspan="8"><b>Detailed Records</b></td></tr>';
-    echo '<tr><th>ID</th><th>Name</th><th>Role</th><th>Direction</th><th>UID</th><th>Admin</th><th>Time</th><th>Suspicious</th></tr>';
-    foreach ($rows as $row) {
-        $adminDisplay = $row['admin_name'] !== '' ? $row['admin_name'] : ($row['admin_uid'] ?: '');
+    echo '<style>td, th { vertical-align: top; } .times { white-space: pre-line; mso-data-placement: same-cell; }</style>';
+    echo '<table border="1"><tr><th colspan="14">Daily Attendance Summary - ' . h($reportLabel) . '</th></tr>';
+    echo '<tr><td><b>Total scans</b></td><td>' . (int) $summary['total'] . '</td><td><b>Overall IN</b></td><td>' . (int) $summary['in'] . '</td><td><b>Overall OUT</b></td><td>' . (int) $summary['out'] . '</td><td><b>People</b></td><td>' . count($groupedRows) . '</td><td><b>Suspicious</b></td><td>' . (int) $summary['suspicious'] . '</td><td><b>Unregistered</b></td><td>' . (int) $summary['unregistered'] . '</td><td><b>Reset hour</b></td><td>' . (int) $resetHour . ':00</td></tr>';
+    echo '<tr><td colspan="14"><b>One row per person. Sessions are paired in chronological order; unmatched scans are identified.</b></td></tr>';
+    echo '<tr><th>Name</th><th>Role</th><th>Department</th><th>UID</th><th>First IN</th><th>Last OUT</th><th>Sessions (IN - OUT)</th><th>Total Time Inside</th><th>IN Count</th><th>OUT Count</th><th>Total Scans</th><th>Suspicious</th><th>Admin(s)</th></tr>';
+    foreach ($groupedRows as $row) {
         echo '<tr>';
-        echo '<td>' . h((string) $row['id']) . '</td>';
         echo '<td>' . h((string) $row['name']) . '</td>';
         echo '<td>' . h((string) $row['role']) . '</td>';
-        echo '<td>' . h((string) $row['direction']) . '</td>';
+        echo '<td>' . h((string) $row['department']) . '</td>';
         echo '<td>' . h((string) $row['uid']) . '</td>';
-        echo '<td>' . h((string) $adminDisplay) . '</td>';
-        echo '<td>' . h(format_datetime_for_report((string) $row['created_at'])) . '</td>';
-        echo '<td>' . ((int) $row['suspicious'] === 1 ? 'Yes' : 'No') . '</td>';
+        echo '<td>' . h((string) $row['first_in']) . '</td>';
+        echo '<td>' . h((string) $row['last_out']) . '</td>';
+        echo '<td class="times">' . h((string) $row['sessions']) . '</td>';
+        echo '<td>' . h((string) $row['total_duration']) . '</td>';
+        echo '<td>' . (int) $row['in_count'] . '</td>';
+        echo '<td>' . (int) $row['out_count'] . '</td>';
+        echo '<td>' . (int) $row['scan_count'] . '</td>';
+        echo '<td>' . h((string) $row['suspicious']) . '</td>';
+        echo '<td>' . h((string) $row['admins']) . '</td>';
         echo '</tr>';
     }
     echo '</table></body></html>';

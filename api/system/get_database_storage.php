@@ -1,13 +1,8 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/db.php';
-
-session_start();
-if (!isset($_SESSION['admin_uid'])) {
-    http_response_code(401);
-    echo json_encode(['ok' => false, 'error' => 'Unauthorized']);
-    exit;
-}
+require_once __DIR__ . '/auth.php';
+require_master_admin();
 
 $result = $mysqli->query("
     SELECT TABLE_NAME AS table_name,

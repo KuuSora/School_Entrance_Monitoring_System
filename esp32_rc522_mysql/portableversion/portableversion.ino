@@ -52,11 +52,13 @@ const unsigned long SCAN_COOLDOWN_MS = 1200;
 
 // Admin login flag is written by the background network task and read by
 volatile bool adminLoggedInFlag = false;
+String adminUid;
 
 // Admin login state changed flag (written by networkTask, saved by loop)
 volatile bool adminLoginChanged = false;
 
 const char* PREFS_ADMIN_KEY = "admin_logged_in";
+const char* PREFS_ADMIN_UID_KEY = "admin_uid";
 
 // ---------------------------------------------------------------------------
 // ASYNC NETWORKING: everything that talks to the PHP server now runs on a
@@ -386,6 +388,15 @@ bool loginAdmin(const String& uid) {
   return ok;
 }
 
+bool logoutAdmin() {
+  if (!networkReady()) return false;
+  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "admin_logout.php");
+  int code = -1;
+  String resp = "";
+  bool ok = httpPostWithRetry(url, "", code, resp, 1);
+  return ok;
+}
+
 bool checkRegisteredUser(const String& uid) {
   if (!networkReady()) return false;
   String url = buildEndpointUrl(SUBFOLDER_USERS, "get_user.php") + "?uid=" + uid;
@@ -441,13 +452,31 @@ void processScanJob(const ScanJob& job) {
 
   if (isAdmin) {
     if (direction == "ADMIN") {
-      loginAdmin(uid);
-      adminLoggedInFlag = true;
-      adminLoginChanged = true;
+      if (adminLoggedInFlag) {
+        logoutAdmin();
+        adminLoggedInFlag = false;
+        adminUid = "";
+        adminLoginChanged = true;
+        if (DEBUG_SERIAL) { Serial.print("[NET] Admin logged out: "); Serial.println(uid); }
+      } else {
+        loginAdmin(uid);
+        adminLoggedInFlag = true;
+        adminUid = uid;
+        adminLoginChanged = true;
+        if (DEBUG_SERIAL) { Serial.print("[NET] Admin logged in: "); Serial.println(uid); }
+      }
     }
     postSignal(buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php"), uid);
     logScan(uid, direction, uid);
     if (DEBUG_SERIAL) { Serial.print("[NET] Admin access logged: "); Serial.println(uid); }
+  } else if (direction == "ADMIN" && adminLoggedInFlag) {
+    String signalUrl = buildEndpointUrl(SUBFOLDER_ADMIN, "report_admin_scan.php");
+    String signalBody = "uid=" + uid + "&admin_uid=" + adminUid;
+    int signalCode = -1;
+    String signalResp = "";
+    httpPostWithRetry(signalUrl, signalBody, signalCode, signalResp);
+    logScan(uid, direction, adminUid);
+    if (DEBUG_SERIAL) { Serial.print("[NET] Admin editing card: "); Serial.println(uid); }
   } else {
     bool registered = checkRegisteredUser(uid);
     if (registered) {
@@ -491,7 +520,21 @@ bool handleScan(MFRC522& reader) {
   if (networkReady()) {
     bool isAdmin = isAdminCard(uid);
     bool cardInside = checkCardStatus(uid);
-    setAutoMode(isAdmin, cardInside);
+    if (isAdmin) {
+      setAutoMode(true, false);
+    } else if (adminLoggedInFlag) {
+      currentMode = MODE_ADMIN;
+      DIRECTION = "ADMIN";
+      updateLEDs();
+      updateAdminBlink();
+      if (DEBUG_SERIAL) {
+        Serial.println("[MODE] ADMIN (admin logged in, edit card)");
+      }
+    } else if (cardInside) {
+      setAutoMode(false, true);
+    } else {
+      setAutoMode(false, false);
+    }
   }
 
   Serial.print("UID ["); Serial.print(DIRECTION); Serial.print("]: "); Serial.println(uid);
@@ -571,10 +614,13 @@ void setup() {
   // Check admin login state from persistent storage
   prefs.begin("config", true);
   adminLoggedInFlag = prefs.getBool(PREFS_ADMIN_KEY, false);
+  adminUid = prefs.getString(PREFS_ADMIN_UID_KEY, "");
   prefs.end();
   if (DEBUG_SERIAL) {
     Serial.print("[ADMIN] Logged in: "); Serial.println(adminLoggedInFlag ? "yes" : "no");
-    if (!adminLoggedInFlag) {
+    if (adminLoggedInFlag) {
+      Serial.print("[ADMIN] Admin UID: "); Serial.println(adminUid);
+    } else {
       Serial.println("[ADMIN] Scan admin card to unlock system");
     }
   }
@@ -605,6 +651,7 @@ void loop() {
     adminLoginChanged = false;
     prefs.begin("config", false);
     prefs.putBool(PREFS_ADMIN_KEY, adminLoggedInFlag);
+    prefs.putString(PREFS_ADMIN_UID_KEY, adminUid);
     prefs.end();
     if (DEBUG_SERIAL) {
       Serial.print("[ADMIN] Persisted login: "); Serial.println(adminLoggedInFlag ? "yes" : "no");

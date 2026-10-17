@@ -1,6 +1,8 @@
 <?php
 header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
+require_once __DIR__ . '/../system/auth.php';
+require_admin_session();
 
 function tableHasColumn(mysqli $mysqli, string $table, string $column): bool {
     $tbl = $mysqli->real_escape_string($table);
@@ -105,6 +107,50 @@ if (!preg_match('/^[0-9A-Fa-f:]+$/', $uid)) {
 
 // Upsert registration data by role.
 $role = strtolower($role);
+if (!in_array($role, ['student', 'faculty', 'staff', 'visitor', 'admin'], true)) {
+    http_response_code(400);
+    echo json_encode(['ok' => false, 'error' => 'Invalid card role']);
+    exit;
+}
+$isMasterAdmin = is_master_admin();
+$uidNorm = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
+$existingRole = null;
+$roleLookup = $mysqli->prepare(
+    "SELECT role FROM (
+        SELECT REPLACE(UPPER(uid), ':', '') AS uid_norm, 'student' AS role FROM students
+        UNION ALL SELECT REPLACE(UPPER(uid), ':', ''), 'faculty' FROM faculty
+        UNION ALL SELECT REPLACE(UPPER(uid), ':', ''), 'staff' FROM staff
+        UNION ALL SELECT REPLACE(UPPER(uid), ':', ''), 'visitor' FROM visitors
+        UNION ALL SELECT REPLACE(UPPER(uid), ':', ''), 'admin' FROM admins
+    ) registered_cards
+    WHERE uid_norm = ? LIMIT 1"
+);
+if (!$roleLookup) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'Unable to verify card type']);
+    exit;
+}
+$roleLookup->bind_param('s', $uidNorm);
+$roleLookup->execute();
+$roleRow = $roleLookup->get_result()->fetch_assoc();
+$roleLookup->close();
+$existingRole = $roleRow['role'] ?? null;
+
+if ($existingRole !== null && $role !== $existingRole) {
+    http_response_code(400);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'This card is already registered as ' . $existingRole . '. Keep the original card type when editing.'
+    ]);
+    exit;
+}
+
+if (!$isMasterAdmin && ($role !== 'visitor' || ($existingRole !== null && $existingRole !== 'visitor'))) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Regular admins can only register or edit visitor cards']);
+    exit;
+}
+
 $ok = false;
 
 if ($role === 'student') {

@@ -1221,6 +1221,58 @@ body.dark-mode .panel-table {
   height: 22px;
 }
 
+.panel-table tbody#rows tr.scan-role-student {
+  background: #60a5fa;
+}
+
+.panel-table tbody#rows tr.scan-role-faculty {
+  background: #4ade80;
+}
+
+.panel-table tbody#rows tr.scan-role-staff {
+  background: #facc15;
+}
+
+.panel-table tbody#rows tr.scan-role-visitor {
+  background: #fb923c;
+}
+
+.panel-table tbody#rows tr.scan-role-admin {
+  background: #ffffff;
+}
+
+.panel-table tbody#rows tr.scan-role-master {
+  background: #f87171;
+}
+
+.panel-table tbody#rows tr.scan-role-unknown {
+  background: #d1d5db;
+}
+
+.register-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.register-mode-tab {
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 14px;
+}
+
+.register-mode-tab:hover,
+.register-mode-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 .panel-table th,
 .table-compact th {
   background: #eff6ff;
@@ -1349,6 +1401,46 @@ body.dark-mode .panel-table tr:hover td {
   border-bottom: 1px solid var(--stroke);
   border-radius: 0;
   box-shadow: none;
+}
+
+.settings-item-wide {
+  align-items: flex-start;
+}
+
+.settings-sms-control {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  min-width: min(440px, 55%);
+}
+
+.settings-textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--card);
+}
+
+.sms-custom-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.sms-custom-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
 }
 
 .settings-item-main {
@@ -1691,6 +1783,19 @@ body.dark-mode #registerFormWrap {
   text-transform: uppercase;
   margin: 0;
   text-shadow: 0 0 4px rgba(255,255,255,0.9);
+}
+
+.id-card-department {
+  position: absolute;
+  top: 66px;
+  left: 0;
+  right: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #000000;
+  z-index: 3;
+  text-align: left;
+  text-shadow: 0 0 3px rgba(255,255,255,0.9);
 }
 
 .id-card-role {
