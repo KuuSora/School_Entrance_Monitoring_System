@@ -16,7 +16,7 @@ return [
     // send the SMS through its connected SIM900A modem.
     'sms_provider' => 'sim900a',
     // TextBee SMS Gateway (https://textbee.dev)
-    'textbee_enabled' => false,
+    'textbee_enabled' => true,
     'textbee_api_key' => 'c832da0c-e199-4da5-b069-a32dc99da5be',
     'textbee_device_id' => '69fd95879b9db0a6fe283b7c',
     'textbee_api_url' => 'https://api.textbee.dev/api/v1'

@@ -136,6 +136,17 @@ CREATE TABLE IF NOT EXISTS visitors (
 - RC522 uses 3.3V only. Do not power it with 5V.
 - If your LCD address is not 0x27, change it in the sketch.
 
+## SMS delivery failover
+
+SMS notifications are queued for the ESP32's SIM900A first. The modem polls
+`api/admin/get_pending_sms.php`, sends the message, and POSTs the result to
+`api/admin/report_sms_result.php`. SIM900A is retried up to five times; after
+the one-minute window, TextBee is attempted up to five times when enabled.
+If both providers fail, the dashboard notification bell shows the failure.
+
+Run `sql/notifications.sql` on an existing database to add the retry columns.
+The portable sketch uses SIM900A UART2 (RX GPIO16, TX GPIO17 by default).
+
 ---
 
 ## Project Prompt (Professional)

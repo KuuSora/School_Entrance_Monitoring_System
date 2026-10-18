@@ -40,35 +40,18 @@ if (!$phone) {
     exit;
 }
 
-$config = require __DIR__ . '/../system/config.php';
-$provider = ($config['sms_provider'] ?? 'sim900a') === 'sim900a' ? 'sim900a' : 'textbee';
-if ($provider === 'sim900a') {
-    $eventType = 'admin_message';
-    $stmt = $mysqli->prepare(
-        "INSERT INTO notifications (uid, phone, message, event_type, provider, status)
-         VALUES (?, ?, ?, ?, 'sim900a', 'queued')"
-    );
-    $stmt->bind_param('ssss', $uidNorm, $phone, $message, $eventType);
-    if ($stmt->execute()) {
-        $id = $stmt->insert_id;
-        $stmt->close();
-        echo json_encode(['ok' => true, 'action' => 'queued_for_sim900a', 'notification_id' => $id]);
-        exit;
-    }
+$eventType = 'admin_message';
+$stmt = $mysqli->prepare(
+    "INSERT INTO notifications (uid, phone, message, event_type, provider, status, fallback_at)
+     VALUES (?, ?, ?, ?, 'sim900a', 'queued', DATE_ADD(NOW(), INTERVAL 1 MINUTE))"
+);
+$stmt->bind_param('ssss', $uidNorm, $phone, $message, $eventType);
+if (!$stmt->execute()) {
     $stmt->close();
-    $provider = 'textbee';
-}
-
-if ($provider === 'textbee' && !empty($config['textbee_enabled'])) {
-    $result = send_via_textbee($phone, $message, $config);
-    if ($result['ok']) {
-        echo json_encode(['ok' => true, 'action' => 'sent_via_textbee']);
-        exit;
-    }
-    http_response_code(502);
-    echo json_encode(['ok' => false, 'error' => $result['error'] ?? 'SMS sending failed']);
+    http_response_code(503);
+    echo json_encode(['ok' => false, 'error' => 'Unable to queue SMS']);
     exit;
 }
-
-http_response_code(503);
-echo json_encode(['ok' => false, 'error' => 'SIM900A queue unavailable and TextBee fallback is not enabled']);
+$id = $stmt->insert_id;
+$stmt->close();
+echo json_encode(['ok' => true, 'action' => 'queued_for_sim900a', 'notification_id' => $id]);

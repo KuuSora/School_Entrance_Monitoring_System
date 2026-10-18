@@ -209,31 +209,7 @@ $smsPayload = null;
                 '{uid}' => $uid,
                 '{time}' => $scanTime,
             ]);
-        $config = require __DIR__ . '/../system/config.php';
-        if (($config['sms_provider'] ?? 'textbee') === 'sim900a') {
-            $normalizedPhone = normalize_ph_number($phone);
-            if ($normalizedPhone) {
-                $stmt_sim_notification = $mysqli->prepare(
-                    "INSERT INTO notifications
-                     (uid, phone, message, event_type, provider, status, sent_at, last_attempt_at)
-                     VALUES (?, ?, ?, ?, 'sim900a', 'sent', NOW(), NOW())"
-                );
-                if ($stmt_sim_notification) {
-                    $stmt_sim_notification->bind_param('ssss', $uid_norm, $normalizedPhone, $message, $eventType);
-                    $stmt_sim_notification->execute();
-                    $stmt_sim_notification->close();
-                }
-                $smsPayload = [
-                    'phone' => $normalizedPhone,
-                    'message' => $message
-                ];
-                $smsResult = ['ok' => true, 'action' => 'delegated_to_sim900a'];
-            } else {
-                $smsResult = ['ok' => false, 'error' => 'Invalid Philippines phone number'];
-            }
-        } else {
-            $smsResult = send_scan_sms($mysqli, $phone, $name, $direction, $uid_norm, $scanTime, $message, $eventType);
-        }
+        $smsResult = send_scan_sms($mysqli, $phone, $name, $direction, $uid_norm, $scanTime, $message, $eventType);
         }
     }
 

@@ -15,8 +15,16 @@ function ensure_admin_roles(mysqli $mysqli): bool {
         return false;
     }
 
-    // Keep the newer role column aligned with the existing master-card flag.
-    if (!$mysqli->query(
+    $masterColumnResult = $mysqli->query("SHOW COLUMNS FROM admins LIKE 'is_master'");
+    if (!$masterColumnResult) {
+        return false;
+    }
+    $hasMasterColumn = $masterColumnResult->num_rows > 0;
+    $masterColumnResult->free();
+
+    // Keep the newer role column aligned when upgrading a database that has
+    // the legacy master-card flag. Newer schemas use admin_role directly.
+    if ($hasMasterColumn && !$mysqli->query(
         "UPDATE admins SET admin_role = CASE WHEN is_master = 1 THEN 'master' ELSE 'admin' END"
     )) {
         return false;

@@ -16,6 +16,10 @@
 #define LED_OUT_PIN 15    // LED for OUT mode (Red)
 #define LED_ADMIN_PIN 13  // LED for ADMIN mode (Blue)
 
+// SIM900A UART (change these two pins if your wiring differs).
+#define SIM900A_RX_PIN 16
+#define SIM900A_TX_PIN 17
+
 // Connect to the laptop hotspot
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
 const char* WIFI_PASS = "12345678";
@@ -73,6 +77,71 @@ struct ScanJob {
 QueueHandle_t scanQueueHandle = NULL;
 TaskHandle_t networkTaskHandle = NULL;
 const int SCAN_QUEUE_LENGTH = 10;
+
+bool networkReady();
+bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxRetries);
+String buildEndpointUrl(const String& subfolder, const String& filename);
+
+String formEncode(const String& value) {
+  String out;
+  const char hex[] = "0123456789ABCDEF";
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value.charAt(i);
+    if (isalnum(c) || c == '-' || c == '_' || c == '.' ) out += c;
+    else if (c == ' ') out += '+';
+    else { out += '%'; out += hex[(c >> 4) & 0x0F]; out += hex[c & 0x0F]; }
+  }
+  return out;
+}
+
+bool simCommand(const String& command, const String& expected, unsigned long timeoutMs = 3000) {
+  Serial2.println(command);
+  unsigned long started = millis();
+  String response;
+  while (millis() - started < timeoutMs) {
+    while (Serial2.available()) response += (char)Serial2.read();
+    if (response.indexOf(expected) >= 0) return true;
+    if (response.indexOf("ERROR") >= 0) return false;
+    delay(10);
+  }
+  return false;
+}
+
+bool sendViaSim900A(const String& phone, const String& message) {
+  if (!simCommand("AT", "OK", 1500)) return false;
+  if (!simCommand("AT+CMGF=1", "OK")) return false;
+  Serial2.print("AT+CMGS=\""); Serial2.print(phone); Serial2.println("\"");
+  delay(500);
+  Serial2.print(message);
+  Serial2.write(26);
+  return simCommand("", "OK", 15000);
+}
+
+void pollSmsQueue() {
+  if (!networkReady()) return;
+  int code = -1;
+  String response;
+  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
+  if (!httpGetWithRetry(url, code, response, 1) || response.indexOf("\"data\":null") >= 0) return;
+  int idStart = response.indexOf("\"id\":");
+  int phoneStart = response.indexOf("\"phone\":\"");
+  int messageStart = response.indexOf("\"message\":\"");
+  if (idStart < 0 || phoneStart < 0 || messageStart < 0) return;
+  int id = response.substring(idStart + 5).toInt();
+  int phoneEnd = response.indexOf('"', phoneStart + 9);
+  int messageEnd = response.indexOf('"', messageStart + 11);
+  if (id < 1 || phoneEnd < 0 || messageEnd < 0) return;
+  String phone = response.substring(phoneStart + 9, phoneEnd);
+  String message = response.substring(messageStart + 11, messageEnd);
+  bool sent = sendViaSim900A(phone, message);
+  HTTPClient report;
+  report.begin(buildEndpointUrl(SUBFOLDER_ADMIN, "report_sms_result.php"));
+  report.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  String body = "id=" + String(id) + "&ok=" + (sent ? "1" : "0");
+  if (!sent) body += "&error=SIM900A+send+failed";
+  report.POST(body);
+  report.end();
+}
 
 void restartScanner() {
   mfrc522.PCD_Init();
@@ -492,9 +561,10 @@ void processScanJob(const ScanJob& job) {
 void networkTask(void* pvParameters) {
   ScanJob job;
   for (;;) {
-    if (xQueueReceive(scanQueueHandle, &job, portMAX_DELAY) == pdTRUE) {
+    if (xQueueReceive(scanQueueHandle, &job, pdMS_TO_TICKS(1000)) == pdTRUE) {
       processScanJob(job);
     }
+    pollSmsQueue();
   }
 }
 
@@ -560,6 +630,7 @@ bool handleScan(MFRC522& reader) {
 
 void setup() {
   Serial.begin(115200);
+  Serial2.begin(9600, SERIAL_8N1, SIM900A_RX_PIN, SIM900A_TX_PIN);
   delay(100);
 
   serverTarget = loadServerTarget();

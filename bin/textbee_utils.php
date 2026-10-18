@@ -78,11 +78,7 @@ function send_scan_sms(
     ?string $message = null,
     ?string $eventType = null
 ): array {
-    $config = require __DIR__ . '/../api/config.php';
-
-    if (empty($config['textbee_enabled'])) {
-        return ['ok' => false, 'error' => 'TextBee disabled'];
-    }
+    $config = require __DIR__ . '/../api/system/config.php';
 
     $direction = strtoupper($direction);
     if ($direction !== 'IN' && $direction !== 'OUT') {
@@ -113,8 +109,11 @@ function send_scan_sms(
     $message = $message ?: ("Hello " . ($toName !== '' ? $toName : 'there') . ", your RFID card was scanned. " .
         "Direction: " . $direction . ", UID: " . $uid . ", Time: " . $scanTime . ".");
 
+    // SIM900A gets the first opportunity. The scanner reports success/failure
+    // through the queue endpoint; TextBee is only eligible after one minute.
     $stmt = $mysqli->prepare(
-        "INSERT INTO notifications (uid, phone, message, event_type, provider, status) VALUES (?, ?, ?, ?, 'textbee', 'queued')"
+        "INSERT INTO notifications (uid, phone, message, event_type, provider, status, fallback_at)
+         VALUES (?, ?, ?, ?, 'sim900a', 'queued', DATE_ADD(NOW(), INTERVAL 1 MINUTE))"
     );
     if (!$stmt) {
         return ['ok' => false, 'error' => 'Failed to queue SMS'];
@@ -127,22 +126,24 @@ function send_scan_sms(
     $notificationId = $stmt->insert_id;
     $stmt->close();
 
-    $sendResult = send_via_textbee($normalizedPhone, $message, $config);
-    if (!$sendResult['ok']) {
-        $mysqli->query(
-            "UPDATE notifications SET status = 'failed', last_error = '" . $mysqli->real_escape_string($sendResult['error']) . "', last_attempt_at = NOW() WHERE id = " . (int)$notificationId
-        );
-        return ['ok' => false, 'error' => 'TextBee send failed: ' . $sendResult['error']];
-    }
-
-    $mysqli->query(
-        "UPDATE notifications SET status = 'sent', sent_at = NOW(), last_attempt_at = NOW() WHERE id = " . (int)$notificationId
-    );
-
     return [
         'ok' => true,
-        'action' => 'sent',
+        'action' => 'queued_for_sim900a',
         'notification_id' => $notificationId,
-        'response' => $sendResult['response'],
     ];
+}
+
+function create_sms_failure_notification(mysqli $mysqli, array $notification, string $error): void {
+    $message = 'SMS delivery failed for ' . ($notification['phone'] ?? 'unknown recipient') .
+        ' after trying SIM900A and TextBee: ' . $error;
+    $stmt = $mysqli->prepare(
+        "INSERT INTO dashboard_notifications (type, title, message, reference_id) VALUES
+         ('sms_failure', 'SMS delivery failed', ?, ?)"
+    );
+    if ($stmt) {
+        $referenceId = (string)($notification['id'] ?? '');
+        $stmt->bind_param('ss', $message, $referenceId);
+        $stmt->execute();
+        $stmt->close();
+    }
 }

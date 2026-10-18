@@ -348,6 +348,14 @@ bool sendSmsViaSim900a(const String& phone, const String& message) {
   return sent;
 }
 
+void reportSmsResult(int id, bool sent) {
+  if (!networkReady() || id < 1) return;
+  int code = -1;
+  String body = "id=" + String(id) + "&ok=" + (sent ? "1" : "0");
+  if (!sent) body += "&error=SIM900A+send+failed";
+  httpPost(buildEndpointUrl(SUBFOLDER_ADMIN, "report_sms_result.php"), body, code);
+}
+
 void pollPendingSms() {
   static unsigned long lastPoll = 0;
   if (millis() - lastPoll < 5000 || !networkReady()) return;
@@ -358,10 +366,15 @@ void pollPendingSms() {
   String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
   if (!httpGet(url, code, &response)) return;
 
+  int idStart = response.indexOf("\"id\":");
+  int phoneStart = response.indexOf("\"phone\":\"");
+  int messageStart = response.indexOf("\"message\":\"");
+  if (idStart < 0 || phoneStart < 0 || messageStart < 0) return;
+  int id = response.substring(idStart + 5).toInt();
   String phone = jsonStringValue(response, "phone");
   String message = jsonStringValue(response, "message");
   if (phone.length() > 0 && message.length() > 0) {
-    sendSmsViaSim900a(phone, message);
+    reportSmsResult(id, sendSmsViaSim900a(phone, message));
   }
 }
 
@@ -374,13 +387,6 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
     body += "&admin_uid=" + adminUid;
   }
   bool posted = httpPost(url, body, code, &response);
-  if (posted && (direction == "IN" || direction == "OUT")) {
-    String smsPhone = jsonStringValue(response, "sim900a_phone");
-    String smsMessage = jsonStringValue(response, "sim900a_message");
-    if (smsPhone.length() > 0 && smsMessage.length() > 0) {
-      sendSmsViaSim900a(smsPhone, smsMessage);
-    }
-  }
   return posted;
 }
 

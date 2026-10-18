@@ -328,6 +328,15 @@ body::before {
           <div class="pill" id="pillState"><span class="pulse"></span>Listening for RFID scans</div>
         </div>
         <p class="card-sub">Tip: keep the card steady on the reader for 1-2 seconds.</p>
+        <?php if (is_local_dev_request()): ?>
+          <div class="dev-login">
+            <form method="post">
+              <input type="hidden" name="dev_login" value="1">
+              <button type="submit" class="dev-login-btn">Developer Login</button>
+            </form>
+            <p class="dev-login-note">Local development login is available on this computer only.</p>
+          </div>
+        <?php endif; ?>
       </aside>
     </div>
   </div>
@@ -441,4 +450,3 @@ body::before {
   </script>
 </body>
 </html>
-

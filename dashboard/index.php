@@ -241,12 +241,22 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 <body>
   <header class="topbar">
     <div class="topbar-brand">
-      <img src="/server/School_Entrance_Monitoring_System/image/Capiz_State_University.png" alt="CAPSU" class="topbar-logo" />
+      <img src="../image/Capiz_State_University.png" alt="CAPSU" class="topbar-logo" />
       <div class="topbar-title">Capiz State University Pilar Satallite College</div>
     </div>
     <div class="topbar-actions">
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </div>
+      <div class="notification-menu">
+        <button type="button" class="notification-button" id="notificationButton" title="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+          <span class="notification-count hidden" id="notificationCount">0</span>
+        </button>
+        <div class="notification-panel hidden" id="notificationPanel">
+          <div class="notification-panel-header"><strong>Notifications</strong><button type="button" id="markNotificationsRead">Mark all read</button></div>
+          <div id="notificationList"><div class="notification-empty">No notifications.</div></div>
+        </div>
       </div>
       <div class="admin-name"><?php echo isset($_SESSION['admin_name']) ? htmlspecialchars($_SESSION['admin_name']) : ''; ?></div>
       <button id="logoutBtn" class="btn secondary" style="margin-left:12px;">Logout</button>
@@ -255,7 +265,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
   <div class="layout">
     <nav class="sidebar">
       <div class="nav-brand">
-        <span class="brand-dot"><img src="/server/School_Entrance_Monitoring_System/image/Capiz_State_University.png" alt="CAPSU"></span>
+        <span class="brand-dot"><img src="../image/Capiz_State_University.png" alt="CAPSU"></span>
         <span class="brand-text">CAPSU GATE</span>
       </div>
       <button class="tab-btn active" data-tab="dashboardTab" title="Live Preview">
@@ -348,7 +358,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
                     <div class="id-card-content">
                       <div class="id-card-layout">
                         <div class="id-card-photo-area">
-                          <img id="idCardPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo">
+                          <img id="idCardPhoto" src="../image/nophoto_s.png" alt="User Photo">
                         </div>
                         <div class="id-card-info-area">
                           <div id="idCardName" class="id-card-name">Sample Name</div>
@@ -612,7 +622,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
               </div>
               <div class="field">
                 <label>Photo</label>
-                <img id="viewPhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="User Photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #e0e0e0;" />
+                <img id="viewPhoto" src="../image/nophoto_s.png" alt="User Photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px;border:2px solid #e0e0e0;" />
               </div>
               <div class="field role-field role-student">
                 <label>Student ID</label>
@@ -740,7 +750,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
                 <div class="field">
                   <label for="regPhoto">Photo</label>
                   <input id="regPhoto" name="photo" type="file" accept="image/*" />
-                  <img id="regPhotoPreview" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="Preview" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;margin-top:6px;display:block;" />
+                  <img id="regPhotoPreview" src="../image/nophoto_s.png" alt="Preview" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;margin-top:6px;display:block;" />
                 </div>
               </div>
               <div class="form-actions">
@@ -1022,7 +1032,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         <div id="profileContent" class="hidden">
           <div class="profile-header">
             <div class="profile-avatar">
-              <img id="profilePhoto" src="/server/School_Entrance_Monitoring_System/image/nophoto_s.png" alt="Profile photo" />
+              <img id="profilePhoto" src="../image/nophoto_s.png" alt="Profile photo" />
             </div>
             <div class="profile-heading">
               <span id="profileRole" class="role-badge role-unknown">Unknown</span>
@@ -1163,14 +1173,14 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     if (viewPhotoEl) {
       viewPhotoEl.onerror = function() {
         this.onerror = null;
-        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+        this.src = '../image/nophoto_s.png';
       };
     }
     const idCardDisplayEl = document.getElementById('idCardDisplay');
     const idCardPhotoEl = document.getElementById('idCardPhoto');
     if (idCardPhotoEl) {
       idCardPhotoEl.onerror = function() {
-        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+        this.src = '../image/nophoto_s.png';
       };
     }
     const idCardNameEl = document.getElementById('idCardName');
@@ -1185,7 +1195,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     if (profilePhotoEl) {
       profilePhotoEl.onerror = function() {
         this.onerror = null;
-        this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+        this.src = '../image/nophoto_s.png';
       };
     }
     const profileRoleEl = document.getElementById('profileRole');
@@ -2403,9 +2413,9 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 
     function getProfilePhotoSrc(photo) {
       if (!photo || !/^[A-Za-z0-9_\-\.]+\.(jpg|jpeg|png|gif|webp)$/i.test(photo)) {
-        return '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+        return '../image/nophoto_s.png';
       }
-      return '/server/School_Entrance_Monitoring_System/uploads/' + encodeURIComponent(photo);
+      return '../uploads/' + encodeURIComponent(photo);
     }
 
     function renderProfileDetails(user) {
@@ -3004,7 +3014,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           registerStatusEl.textContent = 'Saved';
           const savedUid = regUidEl.value;
           registerFormEl.reset();
-          regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+          regPhotoPreviewEl.src = '../image/nophoto_s.png';
           regUidEl.readOnly = false;
           loadUsers();
           loadScans();
@@ -3034,7 +3044,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
             regPhotoPreviewEl.src = url;
           });
         } else {
-          regPhotoPreviewEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+          regPhotoPreviewEl.src = '../image/nophoto_s.png';
         }
       });
     }
@@ -3297,7 +3307,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           if (!metaText && user.phone) metaText = user.phone;
 
           const photoHtml = user.photo && /^[A-Za-z0-9_\-\.]+\.(jpg|jpeg|png|gif|webp)$/i.test(user.photo)
-            ? `<img src="/server/School_Entrance_Monitoring_System/uploads/${encodeURIComponent(user.photo)}" alt="" onerror="this.parentElement.innerHTML='${getInitials(user.name)}'" />`
+            ? `<img src="../uploads/${encodeURIComponent(user.photo)}" alt="" onerror="this.parentElement.innerHTML='${getInitials(user.name)}'" />`
             : getInitials(user.name);
 
           html += `<div class="search-result-item" data-uid="${escapeHtml(user.uid)}" data-role="${escapeHtml(user.role || '')}">
@@ -3358,7 +3368,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       const previewExtraDetailsEl = document.getElementById('previewExtraDetails');
       const previewHistoryRowsEl = document.getElementById('previewHistoryRows');
 
-      if (previewPhotoEl) previewPhotoEl.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+      if (previewPhotoEl) previewPhotoEl.src = '../image/nophoto_s.png';
       if (previewNameEl) previewNameEl.textContent = 'Loading...';
       if (previewUidEl) previewUidEl.textContent = uid;
       if (previewRoleEl) previewRoleEl.textContent = '';
@@ -3380,7 +3390,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           previewPhotoEl.src = getProfilePhotoSrc(user.photo);
           previewPhotoEl.onerror = function() {
             this.onerror = null;
-            this.src = '/server/School_Entrance_Monitoring_System/image/nophoto_s.png';
+            this.src = '../image/nophoto_s.png';
           };
         }
         if (previewNameEl) previewNameEl.textContent = user.name || 'Unknown';
@@ -3475,6 +3485,47 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       updatePanelPosition();
     }
 
+    const notificationButtonEl = document.getElementById('notificationButton');
+    const notificationPanelEl = document.getElementById('notificationPanel');
+    const notificationListEl = document.getElementById('notificationList');
+    const notificationCountEl = document.getElementById('notificationCount');
+    async function loadNotifications() {
+      try {
+        const response = await fetch('../api/admin/get_notifications.php');
+        const result = await response.json();
+        if (!result.ok) return;
+        const rows = Array.isArray(result.data) ? result.data : [];
+        const unread = rows.filter(row => String(row.is_read) === '0').length;
+        if (notificationCountEl) {
+          notificationCountEl.textContent = unread;
+          notificationCountEl.classList.toggle('hidden', unread === 0);
+        }
+        if (notificationListEl) {
+          notificationListEl.innerHTML = rows.length ? rows.map(row =>
+            `<div class="notification-row ${String(row.is_read) === '0' ? 'unread' : ''}">
+              <strong>${escapeHtml(row.title || 'Notification')}</strong>
+              <div>${escapeHtml(row.message || '')}</div>
+              <small>${escapeHtml(row.created_at || '')}</small>
+            </div>`).join('') : '<div class="notification-empty">No notifications.</div>';
+        }
+      } catch (error) {
+        return;
+      }
+    }
+    if (notificationButtonEl) {
+      notificationButtonEl.addEventListener('click', () => {
+        notificationPanelEl.classList.toggle('hidden');
+        if (!notificationPanelEl.classList.contains('hidden')) loadNotifications();
+      });
+    }
+    const markNotificationsReadEl = document.getElementById('markNotificationsRead');
+    if (markNotificationsReadEl) markNotificationsReadEl.addEventListener('click', async () => {
+      await fetch('../api/admin/mark_notifications_read.php', { method: 'POST' });
+      loadNotifications();
+    });
+    loadNotifications();
+    setInterval(loadNotifications, 30000);
+
     // Logout handler
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -3484,6 +3535,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         } catch (err) {
           // ignore
         }
+
         window.location.href = 'login.php';
       });
     }
