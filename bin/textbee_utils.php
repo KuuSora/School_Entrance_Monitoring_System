@@ -28,7 +28,7 @@ function send_via_textbee(string $phone, string $message, array $config): array 
 
     $apiUrl = rtrim($config['textbee_api_url'] ?? 'https://api.textbee.dev/api/v1', '/');
     $deviceId = trim($config['textbee_device_id']);
-    $endpoint = $apiUrl . '/gateway/devices/' . rawurlencode($deviceId) . '/send-sms';
+    $endpoint = $apiUrl . '/gateway/devices/' . rawurlencode($deviceId) . '/sendSMS';
 
     $payload = [
         'recipients' => [$phone],
@@ -44,7 +44,8 @@ function send_via_textbee(string $phone, string $message, array $config): array 
         'x-api-key: ' . $config['textbee_api_key'],
         'Accept: application/json',
     ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -109,16 +110,19 @@ function send_scan_sms(
     $message = $message ?: ("Hello " . ($toName !== '' ? $toName : 'there') . ", your RFID card was scanned. " .
         "Direction: " . $direction . ", UID: " . $uid . ", Time: " . $scanTime . ".");
 
-    // SIM900A gets the first opportunity. The scanner reports success/failure
-    // through the queue endpoint; TextBee is only eligible after one minute.
+    $provider = strtolower((string)($config['sms_provider'] ?? 'sim900a')) === 'textbee'
+        ? 'textbee'
+        : 'sim900a';
+    $fallbackAt = $provider === 'sim900a' ? date('Y-m-d H:i:s', time() + 60) : null;
+
     $stmt = $mysqli->prepare(
         "INSERT INTO notifications (uid, phone, message, event_type, provider, status, fallback_at)
-         VALUES (?, ?, ?, ?, 'sim900a', 'queued', DATE_ADD(NOW(), INTERVAL 1 MINUTE))"
+         VALUES (?, ?, ?, ?, ?, 'queued', ?)"
     );
     if (!$stmt) {
         return ['ok' => false, 'error' => 'Failed to queue SMS'];
     }
-    $stmt->bind_param('ssss', $uid, $normalizedPhone, $message, $eventType);
+    $stmt->bind_param('ssssss', $uid, $normalizedPhone, $message, $eventType, $provider, $fallbackAt);
     if (!$stmt->execute()) {
         $stmt->close();
         return ['ok' => false, 'error' => 'Failed to queue SMS'];
@@ -128,7 +132,7 @@ function send_scan_sms(
 
     return [
         'ok' => true,
-        'action' => 'queued_for_sim900a',
+        'action' => $provider === 'textbee' ? 'queued_for_textbee' : 'queued_for_sim900a',
         'notification_id' => $notificationId,
     ];
 }

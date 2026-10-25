@@ -20,6 +20,9 @@ function insertOrUpdateRole(mysqli $mysqli, string $table, array $baseColumns, a
     $updateParts = [];
 
     foreach ($updatableColumns as $column) {
+        if ($column === 'photo' && empty($baseValues[$column])) {
+            continue;
+        }
         $updateParts[] = "`{$column}` = VALUES(`{$column}`)";
     }
 

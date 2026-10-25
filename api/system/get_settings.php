@@ -20,6 +20,13 @@ if (!$admin_uid) {
 }
 
 $defaults = [
+    'system_title' => 'School Entrance Monitoring System',
+    'school_name' => 'CAPSU GATE',
+    'dashboard_logo' => '../image/Capiz_State_University.png',
+    'login_logo' => '../image/Capiz_State_University.png',
+    'login_title' => 'Secured RFID gate access',
+    'login_intro' => 'Ensuring a safe, smart, and efficient entry experience for {school_name} students, faculty, and staff.',
+    'login_background' => '../image/capsu_pilar_gate.jpg',
     'theme' => 'light',
     'font_size' => 'medium',
     'refresh_today_scan' => '5',

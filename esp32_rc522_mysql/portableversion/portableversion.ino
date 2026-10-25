@@ -15,10 +15,13 @@
 #define LED_IN_PIN 2      // LED for IN mode (Green)
 #define LED_OUT_PIN 15    // LED for OUT mode (Red)
 #define LED_ADMIN_PIN 13  // LED for ADMIN mode (Blue)
+#define BUZZER_PIN 14     // Buzzer or passive piezo, active-high
 
-// SIM900A UART (change these two pins if your wiring differs).
-#define SIM900A_RX_PIN 16
-#define SIM900A_TX_PIN 17
+// TextBee SMS Gateway config (direct to TextBee, no SIM900A).
+const char* TEXTBEE_API_KEY = "c832da0c-e199-4da5-b069-a32dc99da5be";
+const char* TEXTBEE_DEVICE_ID = "69fd95879b9db0a6fe283b7c";
+const char* TEXTBEE_API_URL = "https://api.textbee.dev/api/v1";
+const int SMS_MAX_LOOPS = 5;
 
 // Connect to the laptop hotspot
 const char* WIFI_SSID = "DESKTOP-FTP1D16 9697";
@@ -53,6 +56,7 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 bool scanCooldownActive = false;
 unsigned long lastScanTime = 0;
 const unsigned long SCAN_COOLDOWN_MS = 1200;
+const unsigned long SMS_POLL_INTERVAL_MS = 30000;
 
 // Admin login flag is written by the background network task and read by
 volatile bool adminLoggedInFlag = false;
@@ -94,53 +98,60 @@ String formEncode(const String& value) {
   return out;
 }
 
-bool simCommand(const String& command, const String& expected, unsigned long timeoutMs = 3000) {
-  Serial2.println(command);
-  unsigned long started = millis();
-  String response;
-  while (millis() - started < timeoutMs) {
-    while (Serial2.available()) response += (char)Serial2.read();
-    if (response.indexOf(expected) >= 0) return true;
-    if (response.indexOf("ERROR") >= 0) return false;
-    delay(10);
+bool sendViaTextbee(const String& phone, const String& message) {
+  if (!networkReady()) return false;
+  String endpoint = String(TEXTBEE_API_URL) + "/gateway/devices/" + String(TEXTBEE_DEVICE_ID) + "/sendSMS";
+  HTTPClient http;
+  http.begin(endpoint);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("x-api-key", String(TEXTBEE_API_KEY));
+  http.addHeader("Accept", "application/json");
+  http.setTimeout(5000);
+  String payload = "{\"recipients\":[\"" + phone + "\"],\"message\":\"" + message + "\"}";
+  int code = http.POST(payload);
+  String resp = http.getString();
+  http.end();
+  if (DEBUG_SERIAL) {
+    Serial.print("[TEXTBEE] HTTP "); Serial.print(code);
+    Serial.print(" Response: "); Serial.println(resp);
   }
-  return false;
-}
-
-bool sendViaSim900A(const String& phone, const String& message) {
-  if (!simCommand("AT", "OK", 1500)) return false;
-  if (!simCommand("AT+CMGF=1", "OK")) return false;
-  Serial2.print("AT+CMGS=\""); Serial2.print(phone); Serial2.println("\"");
-  delay(500);
-  Serial2.print(message);
-  Serial2.write(26);
-  return simCommand("", "OK", 15000);
+  return code == HTTP_CODE_OK;
 }
 
 void pollSmsQueue() {
-  if (!networkReady()) return;
-  int code = -1;
-  String response;
-  String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
-  if (!httpGetWithRetry(url, code, response, 1) || response.indexOf("\"data\":null") >= 0) return;
-  int idStart = response.indexOf("\"id\":");
-  int phoneStart = response.indexOf("\"phone\":\"");
-  int messageStart = response.indexOf("\"message\":\"");
-  if (idStart < 0 || phoneStart < 0 || messageStart < 0) return;
-  int id = response.substring(idStart + 5).toInt();
-  int phoneEnd = response.indexOf('"', phoneStart + 9);
-  int messageEnd = response.indexOf('"', messageStart + 11);
-  if (id < 1 || phoneEnd < 0 || messageEnd < 0) return;
-  String phone = response.substring(phoneStart + 9, phoneEnd);
-  String message = response.substring(messageStart + 11, messageEnd);
-  bool sent = sendViaSim900A(phone, message);
-  HTTPClient report;
-  report.begin(buildEndpointUrl(SUBFOLDER_ADMIN, "report_sms_result.php"));
-  report.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  String body = "id=" + String(id) + "&ok=" + (sent ? "1" : "0");
-  if (!sent) body += "&error=SIM900A+send+failed";
-  report.POST(body);
-  report.end();
+  static unsigned long lastPoll = 0;
+  if (!networkReady() || millis() - lastPoll < SMS_POLL_INTERVAL_MS) return;
+  lastPoll = millis();
+
+  for (int loop = 1; loop <= SMS_MAX_LOOPS; loop++) {
+    int code = -1;
+    String response;
+    String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
+    if (!httpGetWithRetry(url, code, response, 1) || response.indexOf("\"data\":null") >= 0) return;
+    int idStart = response.indexOf("\"id\":");
+    int phoneStart = response.indexOf("\"phone\":\"");
+    int messageStart = response.indexOf("\"message\":\"");
+    if (idStart < 0 || phoneStart < 0 || messageStart < 0) return;
+    int id = response.substring(idStart + 5).toInt();
+    int phoneEnd = response.indexOf('"', phoneStart + 9);
+    int messageEnd = response.indexOf('"', messageStart + 11);
+    if (id < 1 || phoneEnd < 0 || messageEnd < 0) return;
+    String phone = response.substring(phoneStart + 9, phoneEnd);
+    String message = response.substring(messageStart + 11, messageEnd);
+
+    bool sent = sendViaTextbee(phone, message);
+
+    HTTPClient report;
+    report.begin(buildEndpointUrl(SUBFOLDER_ADMIN, "report_sms_result.php"));
+    report.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    String body = "id=" + String(id) + "&ok=" + (sent ? "1" : "0");
+    if (!sent) body += "&error=TextBee+send+failed";
+    report.POST(body);
+    report.end();
+
+    if (sent) return;
+    if (loop < SMS_MAX_LOOPS) delay(1000);
+  }
 }
 
 void restartScanner() {
@@ -155,6 +166,12 @@ void restartScanner() {
 void updateLEDs() {
   digitalWrite(LED_IN_PIN, currentMode == MODE_IN ? HIGH : LOW);
   digitalWrite(LED_OUT_PIN, currentMode == MODE_OUT ? HIGH : LOW);
+}
+
+void beepBuzzer(unsigned int durationMs = 1000) {
+  tone(BUZZER_PIN, 2000);
+  delay(durationMs);
+  noTone(BUZZER_PIN);
 }
 
 void updateDirectionString() {
@@ -225,6 +242,7 @@ bool httpPostWithRetry(const String& url, const String& body, int& outCode, Stri
       delay(300);
       continue;
     }
+
     HTTPClient http;
     if (DEBUG_SERIAL) {
       Serial.print("POST attempt "); Serial.print(attempt);
@@ -246,6 +264,16 @@ bool httpPostWithRetry(const String& url, const String& body, int& outCode, Stri
     delay(250);
   }
   return false;
+}
+
+void reportDeviceHeartbeat() {
+  static unsigned long lastHeartbeat = 0;
+  if (millis() - lastHeartbeat < 30000 || !networkReady()) return;
+  lastHeartbeat = millis();
+  int code = -1;
+  String response;
+  httpPostWithRetry(buildEndpointUrl(SUBFOLDER_ADMIN, "device_heartbeat.php"),
+                    "device=portable", code, response, 1);
 }
 
 bool httpGetWithRetry(const String& url, int& outCode, String& outResp, int maxRetries = 2) {
@@ -312,7 +340,12 @@ String buildServerUrl(const String& target) {
   if (target.startsWith("http://") || target.startsWith("https://")) return target;
   String path = normalizePath(target);
   IPAddress gw = WiFi.gatewayIP();
-  return "http://" + gw.toString() + path;
+  String host = gw.toString();
+  if (path == "/localhost" || path.startsWith("/localhost/")) {
+    path.replace("/localhost", host);
+    return "http://" + path;
+  }
+  return "http://" + host + path;
 }
 
 String joinApiPath(String root, const String& subfolder, const String& filename) {
@@ -372,6 +405,16 @@ void handleSerialCommands() {
     return;
   }
 
+  if (line == "RUN_DIAGNOSTICS") {
+    runDiagnostics();
+    return;
+  }
+
+  if (line == "RUN_OUTPUT_TEST") {
+    runOutputTest();
+    return;
+  }
+
   if (line == "GET_TARGET") {
     Serial.print("API root: "); Serial.println(serverTarget);
     return;
@@ -385,7 +428,59 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
+  Serial.println("Unknown command. Use RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
+}
+
+void runOutputTest() {
+  Serial.println("[DIAG] Output test starting. No door relay is connected in portable mode.");
+  digitalWrite(LED_IN_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_IN_PIN, LOW);
+  digitalWrite(LED_OUT_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_OUT_PIN, LOW);
+  digitalWrite(LED_ADMIN_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_ADMIN_PIN, LOW);
+  beepBuzzer(300);
+  Serial.println("[DIAG] GPIO12 driven HIGH for 300 ms.");
+  Serial.println("[DIAG] LEDs tested: IN, OUT, ADMIN; buzzer tested (check them visually/audibly).");
+  Serial.println("[DIAG] Output test complete.");
+  updateLEDs();
+  updateAdminBlink();
+}
+
+void runDiagnostics() {
+  Serial.println();
+  Serial.println("=== HARDWARE DIAGNOSTICS (PORTABLE) ===");
+  Serial.println("[INFO] Output pins can be driven but cannot detect a disconnected wire.");
+  Serial.println("[PIN] SS=25, RST=27, LED_IN=2, LED_OUT=15, LED_ADMIN=13, BUZZER=12");
+
+  pinMode(SS_PIN, OUTPUT);
+  digitalWrite(SS_PIN, HIGH);
+  pinMode(RST_PIN, OUTPUT);
+  digitalWrite(RST_PIN, LOW);
+  delay(5);
+  digitalWrite(RST_PIN, HIGH);
+  delay(50);
+  SPI.begin();
+  mfrc522.PCD_Init();
+  byte version = mfrc522.PCD_ReadRegister(MFRC522::VersionReg);
+  Serial.print("[RC522] Version register: 0x");
+  Serial.println(version, HEX);
+  Serial.println((version == 0x00 || version == 0xFF)
+    ? "[RC522] FAIL - check 3.3V, GND, SCK/MOSI/MISO, SS=25, RST=27"
+    : "[RC522] PASS - SPI communication detected");
+
+  Serial.print("[WIFI] ");
+  Serial.println(networkReady() ? "PASS - connected" : "FAIL - not connected");
+  if (networkReady()) {
+    debugPrintWifiInfo();
+    Serial.print("[API] Endpoint: ");
+    Serial.println(buildEndpointUrl(SUBFOLDER_USERS, "get_user.php"));
+  }
+  Serial.println("[LED] Run RUN_OUTPUT_TEST and confirm all three LEDs light.");
+  Serial.println("=== DIAGNOSTICS COMPLETE ===");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -565,6 +660,7 @@ void networkTask(void* pvParameters) {
       processScanJob(job);
     }
     pollSmsQueue();
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -585,6 +681,7 @@ bool handleScan(MFRC522& reader) {
   }
 
   String uid = uidToString(&reader.uid);
+  beepBuzzer();
 
   // Auto-determine direction based on card status
   if (networkReady()) {
@@ -630,13 +727,12 @@ bool handleScan(MFRC522& reader) {
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, SIM900A_RX_PIN, SIM900A_TX_PIN);
   delay(100);
 
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
     Serial.print("Server target: "); Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
+    Serial.println("Commands: RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
   pinMode(SS_PIN, OUTPUT);
@@ -646,6 +742,9 @@ void setup() {
   pinMode(LED_IN_PIN, OUTPUT);
   pinMode(LED_OUT_PIN, OUTPUT);
   pinMode(LED_ADMIN_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  beepBuzzer(1000);
 
   // Initialize LEDs to show current mode
   updateLEDs();
@@ -716,6 +815,7 @@ void setup() {
 
 void loop() {
   handleSerialCommands();
+  reportDeviceHeartbeat();
   updateAdminBlink();
 
   if (adminLoginChanged) {

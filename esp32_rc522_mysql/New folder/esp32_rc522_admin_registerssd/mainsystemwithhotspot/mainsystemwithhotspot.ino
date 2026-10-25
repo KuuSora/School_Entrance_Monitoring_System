@@ -17,10 +17,11 @@
 // HW-316 Relay Module (active LOW)
 #define RELAY_M1     21   // IN solenoid (left)
 #define RELAY_M2     26   // OUT solenoid (right)
-#define BUZZER_PIN   14   // Active HIGH buzzer for access granted
+#define BUZZER_PIN   14   // Piezo buzzer for access granted
+#define BUZZER_FREQUENCY 2000
 // SIM900A UART2: module TX -> ESP32 RX, module RX -> ESP32 TX.
-#define SIM900A_RX_PIN 16
-#define SIM900A_TX_PIN 32
+#define SIM900A_RX_PIN 34
+#define SIM900A_TX_PIN 13
 #define SIM900A_BAUD 9600
 // =========================================================
 
@@ -29,6 +30,7 @@ const char* WIFI_PASS = "12345678";
 
 const char* DEFAULT_SERVER_PATH = "/server/School_Entrance_Monitoring_System/api";
 const bool DEBUG_SERIAL = true;
+const unsigned long SMS_POLL_INTERVAL_MS = 30000;
 
 const char* SUBFOLDER_ADMIN = "admin";
 const char* SUBFOLDER_SIGNALS = "signals";
@@ -56,11 +58,13 @@ const char* PREFS_ADMIN_KEY = "admin_logged_in";
 
 // Buzzer feedback for access granted (non-blocking)
 unsigned long buzzerEndTime = 0;
-const unsigned long BUZZER_DURATION_MS = 1000;
+const unsigned long BUZZER_DURATION_MS = 1500;
 
 MFRC522 mfrc522In(SS_PIN_IN, RST_PIN_IN);
 MFRC522 mfrc522Out(SS_PIN_OUT, RST_PIN_OUT);
 HardwareSerial sim900a(2);
+
+bool readModemResponse(const char* command, String& response, unsigned long timeoutMs);
 
 bool networkReady() {
   return WiFi.status() == WL_CONNECTED;
@@ -180,6 +184,16 @@ void handleSerialCommands() {
     return;
   }
 
+  if (line == "RUN_DIAGNOSTICS") {
+    runDiagnostics();
+    return;
+  }
+
+  if (line == "RUN_OUTPUT_TEST") {
+    runOutputTest();
+    return;
+  }
+
   if (line == "GET_TARGET") {
     Serial.print("API root: "); Serial.println(serverTarget);
     return;
@@ -193,7 +207,72 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
+  Serial.println("Unknown command. Use RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, or RESET_URL");
+}
+
+void runOutputTest() {
+  Serial.println("[DIAG] Output test starting. WARNING: relays will remain locked.");
+  lockAll();
+  Serial.println("[RELAY] M1=HIGH (locked), M2=HIGH (locked). No unlock pulse was sent.");
+  tone(BUZZER_PIN, BUZZER_FREQUENCY, 250);
+  delay(300);
+  noTone(BUZZER_PIN);
+  Serial.println("[BUZZER] Tone sent for 250 ms (check audibly).");
+  Serial.println("[DIAG] Output test complete.");
+}
+
+void runDiagnostics() {
+  Serial.println();
+  Serial.println("=== HARDWARE DIAGNOSTICS (DUAL SCANNER) ===");
+  Serial.println("[INFO] A GPIO output cannot detect a disconnected wire without loopback.");
+  Serial.println("[PIN] SPI SCK=18, MOSI=23, MISO=19");
+  Serial.println("[PIN] IN SS=5, RST=17; OUT SS=25, RST=27");
+  Serial.println("[PIN] RELAY_M1=21, RELAY_M2=26, BUZZER=14, SIM900A_RX=34, SIM900A_TX=13");
+
+  pinMode(SS_PIN_IN, OUTPUT);
+  pinMode(SS_PIN_OUT, OUTPUT);
+  digitalWrite(SS_PIN_IN, HIGH);
+  digitalWrite(SS_PIN_OUT, HIGH);
+  pinMode(RST_PIN_IN, OUTPUT);
+  pinMode(RST_PIN_OUT, OUTPUT);
+  digitalWrite(RST_PIN_IN, LOW);
+  digitalWrite(RST_PIN_OUT, LOW);
+  delay(5);
+  digitalWrite(RST_PIN_IN, HIGH);
+  digitalWrite(RST_PIN_OUT, HIGH);
+  delay(50);
+  SPI.begin();
+  mfrc522In.PCD_Init();
+  mfrc522Out.PCD_Init();
+  byte inVersion = mfrc522In.PCD_ReadRegister(MFRC522::VersionReg);
+  byte outVersion = mfrc522Out.PCD_ReadRegister(MFRC522::VersionReg);
+  Serial.print("[RC522 IN] Version register: 0x");
+  Serial.println(inVersion, HEX);
+  Serial.println((inVersion == 0x00 || inVersion == 0xFF)
+    ? "[RC522 IN] FAIL - check power, GND, SPI, SS=5, RST=17"
+    : "[RC522 IN] PASS - SPI communication detected");
+  Serial.print("[RC522 OUT] Version register: 0x");
+  Serial.println(outVersion, HEX);
+  Serial.println((outVersion == 0x00 || outVersion == 0xFF)
+    ? "[RC522 OUT] FAIL - check power, GND, SPI, SS=25, RST=27"
+    : "[RC522 OUT] PASS - SPI communication detected");
+
+  Serial.print("[WIFI] ");
+  Serial.println(networkReady() ? "PASS - connected" : "FAIL - not connected");
+  if (networkReady()) {
+    debugPrintWifiInfo();
+    Serial.print("[API] Endpoint: ");
+    Serial.println(buildEndpointUrl(SUBFOLDER_SCANS, "log_scan.php"));
+  }
+
+  String modemResponse;
+  bool modemOk = readModemResponse("AT", modemResponse, 1500);
+  Serial.print("[SIM900A] ");
+  Serial.println(modemOk
+    ? "PASS - modem replied OK"
+    : "FAIL - no OK response; check power, GND, RX/TX crossing");
+  Serial.println("[RELAY] PASS (software lock state only). Use RUN_OUTPUT_TEST and verify both relay modules stay locked.");
+  Serial.println("=== DIAGNOSTICS COMPLETE ===");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -241,7 +320,7 @@ bool httpPost(const String& url, const String& body, int& outCode, String* respo
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  http.setTimeout(3000);
+  http.setTimeout(1500);
   outCode = http.POST(body);
   String resp = http.getString();
   if (responseOut != nullptr) {
@@ -256,11 +335,11 @@ bool httpPost(const String& url, const String& body, int& outCode, String* respo
   return outCode == HTTP_CODE_OK;
 }
 
-bool httpGet(const String& url, int& outCode, String* responseOut = nullptr) {
+bool httpGet(const String& url, int& outCode, String* responseOut = nullptr, uint16_t timeoutMs = 1500) {
   if (!networkReady()) return false;
   HTTPClient http;
   http.begin(url);
-  http.setTimeout(3000);
+  http.setTimeout(timeoutMs);
   outCode = http.GET();
   String resp = http.getString();
   if (responseOut != nullptr) {
@@ -315,9 +394,79 @@ bool waitForModem(const char* expected, unsigned long timeoutMs) {
       buffer += (char)sim900a.read();
       if (buffer.indexOf(expected) >= 0) return true;
     }
-    delay(5);
+    delay(2);
   }
   return false;
+}
+
+bool readModemResponse(const char* command, String& response, unsigned long timeoutMs = 1200) {
+  while (sim900a.available()) sim900a.read();
+  sim900a.println(command);
+  response = "";
+  unsigned long started = millis();
+  while (millis() - started < timeoutMs) {
+    while (sim900a.available()) {
+      response += (char)sim900a.read();
+    }
+    if (response.indexOf("OK") >= 0 || response.indexOf("ERROR") >= 0) {
+      return response.indexOf("OK") >= 0;
+    }
+    delay(2);
+  }
+  return false;
+}
+
+void printSim900aStatus() {
+  String response;
+  if (!readModemResponse("AT", response)) {
+    Serial.println("[SIM900A] STATUS: NOT CONNECTED / NO MODEM RESPONSE");
+    Serial.println("[SIM900A] Check separate power, shared GND, crossed TX/RX, and 3VT/3VR wiring");
+    return;
+  }
+
+  Serial.println("[SIM900A] STATUS: MODEM CONNECTED");
+
+  String registration;
+  bool registrationCommandOk = readModemResponse("AT+CREG?", registration);
+  Serial.print("[SIM900A] CREG RAW: ");
+  Serial.println(registration);
+  int registrationMarker = registration.indexOf("+CREG:");
+  int comma = registrationMarker >= 0 ? registration.indexOf(',', registrationMarker) : -1;
+  if (registrationCommandOk && registrationMarker >= 0 && comma >= 0) {
+    int status = registration.substring(comma + 1).toInt();
+    if (status == 1) {
+      Serial.println("[SIM900A] NETWORK: REGISTERED (HOME)");
+    } else if (status == 5) {
+      Serial.println("[SIM900A] NETWORK: REGISTERED (ROAMING)");
+    } else if (status == 2) {
+      Serial.println("[SIM900A] NETWORK: SEARCHING");
+    } else if (status == 3) {
+      Serial.println("[SIM900A] NETWORK: REGISTRATION DENIED");
+    } else {
+      Serial.println("[SIM900A] NETWORK: NOT REGISTERED");
+    }
+  } else {
+    Serial.println("[SIM900A] NETWORK: REGISTRATION CHECK FAILED");
+  }
+
+  String signal;
+  if (readModemResponse("AT+CSQ", signal)) {
+    int marker = signal.indexOf("+CSQ:");
+    int comma = marker >= 0 ? signal.indexOf(',', marker) : -1;
+    int rssi = marker >= 0 ? signal.substring(marker + 5, comma).toInt() : 99;
+    if (rssi == 99) {
+      Serial.println("[SIM900A] SIGNAL: UNKNOWN");
+    } else {
+      int percent = constrain((rssi * 100) / 31, 0, 100);
+      Serial.print("[SIM900A] SIGNAL: RSSI ");
+      Serial.print(rssi);
+      Serial.print("/31 (");
+      Serial.print(percent);
+      Serial.println("%)");
+    }
+  } else {
+    Serial.println("[SIM900A] SIGNAL: UNAVAILABLE");
+  }
 }
 
 bool sendSmsViaSim900a(const String& phone, const String& message) {
@@ -325,25 +474,25 @@ bool sendSmsViaSim900a(const String& phone, const String& message) {
 
   while (sim900a.available()) sim900a.read();
   sim900a.println("AT");
-  if (!waitForModem("OK", 1500)) {
-    Serial.println("[SIM900A] No modem response");
+  if (!waitForModem("OK", 700)) {
+    Serial.println("[SIM900A] No modem response; check power, shared GND, crossed TX/RX, and 3VT/3VR wiring");
     return false;
   }
 
   sim900a.println("AT+CMGF=1");
-  if (!waitForModem("OK", 1500)) return false;
+  if (!waitForModem("OK", 700)) return false;
 
   sim900a.print("AT+CMGS=\"");
   sim900a.print(phone);
   sim900a.println("\"");
-  if (!waitForModem(">", 5000)) {
+  if (!waitForModem(">", 2500)) {
     Serial.println("[SIM900A] No SMS prompt");
     return false;
   }
 
   sim900a.print(message);
   sim900a.write(26);
-  bool sent = waitForModem("OK", 15000);
+  bool sent = waitForModem("OK", 8000);
   Serial.println(sent ? "[SIM900A] SMS sent" : "[SIM900A] SMS failed");
   return sent;
 }
@@ -356,15 +505,40 @@ void reportSmsResult(int id, bool sent) {
   httpPost(buildEndpointUrl(SUBFOLDER_ADMIN, "report_sms_result.php"), body, code);
 }
 
+void reportDeviceHeartbeat(const String& device) {
+  if (!networkReady()) return;
+  int code = -1;
+  httpPost(buildEndpointUrl(SUBFOLDER_ADMIN, "device_heartbeat.php"),
+           "device=" + device, code);
+}
+
+void heartbeatServiceTask(void* parameter) {
+  (void)parameter;
+  vTaskDelay(pdMS_TO_TICKS(5000));
+  for (;;) {
+    reportDeviceHeartbeat("main_system");
+    reportDeviceHeartbeat("sms_module");
+    vTaskDelay(pdMS_TO_TICKS(30000));
+  }
+}
+
 void pollPendingSms() {
   static unsigned long lastPoll = 0;
-  if (millis() - lastPoll < 5000 || !networkReady()) return;
+  if (millis() - lastPoll < SMS_POLL_INTERVAL_MS || !networkReady()) return;
   lastPoll = millis();
 
   int code = -1;
   String response;
   String url = buildEndpointUrl(SUBFOLDER_ADMIN, "get_pending_sms.php");
-  if (!httpGet(url, code, &response)) return;
+  // TextBee fallback runs inside this endpoint and can take longer than RFID
+  // requests. Keep this timeout local to the low-priority SMS task.
+  if (!httpGet(url, code, &response, 6000)) {
+    if (DEBUG_SERIAL) {
+      Serial.print("[SMS] Queue poll failed: HTTP ");
+      Serial.println(code);
+    }
+    return;
+  }
 
   int idStart = response.indexOf("\"id\":");
   int phoneStart = response.indexOf("\"phone\":\"");
@@ -375,6 +549,20 @@ void pollPendingSms() {
   String message = jsonStringValue(response, "message");
   if (phone.length() > 0 && message.length() > 0) {
     reportSmsResult(id, sendSmsViaSim900a(phone, message));
+  }
+}
+
+void smsServiceTask(void* parameter) {
+  (void)parameter;
+  vTaskDelay(pdMS_TO_TICKS(5000));
+  unsigned long lastModemStatus = 0;
+  for (;;) {
+    if (millis() - lastModemStatus >= 30000) {
+      printSim900aStatus();
+      lastModemStatus = millis();
+    }
+    pollPendingSms();
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -391,7 +579,7 @@ bool logScan(const String& uid, const String& direction, const String& adminUid)
 }
 
 void triggerBuzzer() {
-  digitalWrite(BUZZER_PIN, HIGH);
+  tone(BUZZER_PIN, BUZZER_FREQUENCY);
   buzzerEndTime = millis() + BUZZER_DURATION_MS;
 }
 
@@ -442,8 +630,17 @@ bool handleScan(MFRC522& reader, const String& direction, unsigned long& lastSca
   }
 
   if (!reader.PICC_IsNewCardPresent()) return false;
-  if (!reader.PICC_ReadCardSerial()) {
+  bool cardRead = false;
+  for (uint8_t attempt = 0; attempt < 2; attempt++) {
+    if (reader.PICC_ReadCardSerial()) {
+      cardRead = true;
+      break;
+    }
+    delay(8);
+  }
+  if (!cardRead) {
     if (DEBUG_SERIAL) Serial.println("Card read failed");
+    reader.PCD_StopCrypto1();
     return false;
   }
 
@@ -510,11 +707,29 @@ void setup() {
   delay(100);
   sim900a.begin(SIM900A_BAUD, SERIAL_8N1, SIM900A_RX_PIN, SIM900A_TX_PIN);
   Serial.println("[SIM900A] UART2 initialized");
+  xTaskCreatePinnedToCore(
+    smsServiceTask,
+    "smsService",
+    8192,
+    nullptr,
+    1,
+    nullptr,
+    0
+  );
+  xTaskCreatePinnedToCore(
+    heartbeatServiceTask,
+    "heartbeatService",
+    4096,
+    nullptr,
+    1,
+    nullptr,
+    0
+  );
 
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
     Serial.print("API root: "); Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
+    Serial.println("Commands: RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
   pinMode(SS_PIN_IN, OUTPUT);
@@ -528,7 +743,7 @@ void setup() {
   digitalWrite(RELAY_M2, HIGH);
 
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
+  noTone(BUZZER_PIN);
 
   prefs.begin("config", false);
   adminLoggedIn = prefs.getBool(PREFS_ADMIN_KEY, false);
@@ -570,7 +785,6 @@ void setup() {
 
 void loop() {
   handleSerialCommands();
-  pollPendingSms();
 
   if (inUnlocked && (millis() - inUnlockTime >= UNLOCK_TIMEOUT)) {
     lockIn();
@@ -579,7 +793,7 @@ void loop() {
     lockOut();
   }
   if (buzzerEndTime > 0 && millis() >= buzzerEndTime) {
-    digitalWrite(BUZZER_PIN, LOW);
+    noTone(BUZZER_PIN);
     buzzerEndTime = 0;
   }
 

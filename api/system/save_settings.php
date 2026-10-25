@@ -23,6 +23,13 @@ if (!is_array($data)) {
 }
 
 $allowed = [
+    'system_title',
+    'school_name',
+    'dashboard_logo',
+    'login_logo',
+    'login_title',
+    'login_intro',
+    'login_background',
     'theme',
     'font_size',
     'refresh_today_scan',
@@ -61,6 +68,14 @@ foreach ($allowed as $key) {
     $value = $data[$key];
     if ($value === null || $value === '') {
         $value = null;
+    }
+    if (in_array($key, ['dashboard_logo', 'login_logo', 'login_background'], true)
+        && $value !== null
+        && !preg_match('~^\.\./(?:image|uploads/branding)/[A-Za-z0-9_.-]+$~', (string) $value)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Invalid branding image path']);
+        $stmt->close();
+        exit;
     }
     if (!$stmt->bind_param('ss', $key, $value)) {
         http_response_code(500);

@@ -11,7 +11,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RFID Dashboard</title>
+  <title>School Entrance Monitoring System</title>
   <link rel="stylesheet" href="style.css?v=5">
   <style>
     :root {
@@ -241,12 +241,17 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 <body>
   <header class="topbar">
     <div class="topbar-brand">
-      <img src="../image/Capiz_State_University.png" alt="CAPSU" class="topbar-logo" />
-      <div class="topbar-title">Capiz State University Pilar Satallite College</div>
+      <img id="dashboardLogoTop" src="../image/Capiz_State_University.png" alt="CAPSU" class="topbar-logo" />
+      <div class="topbar-title" id="systemTitleText">School Entrance Monitoring System</div>
     </div>
     <div class="topbar-actions">
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </div>
+      <div class="device-status-group" id="deviceStatusGroup" title="Device connection status" aria-label="Device connection status">
+        <span class="device-status-item"><span class="device-status-dot" data-device-status="main_system"></span><span>Main</span></span>
+        <span class="device-status-item"><span class="device-status-dot" data-device-status="portable"></span><span>Portable</span></span>
+        <span class="device-status-item"><span class="device-status-dot" data-device-status="sms_module"></span><span>SMS</span></span>
       </div>
       <div class="notification-menu">
         <button type="button" class="notification-button" id="notificationButton" title="Notifications" aria-label="Notifications">
@@ -265,8 +270,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
   <div class="layout">
     <nav class="sidebar">
       <div class="nav-brand">
-        <span class="brand-dot"><img src="../image/Capiz_State_University.png" alt="CAPSU"></span>
-        <span class="brand-text">CAPSU GATE</span>
+        <span class="brand-dot"><img id="dashboardLogoSide" src="../image/Capiz_State_University.png" alt="CAPSU"></span>
+        <span class="brand-text" id="schoolNameText">CAPSU GATE</span>
       </div>
       <button class="tab-btn active" data-tab="dashboardTab" title="Live Preview">
         <span class="tab-icon" aria-hidden="true">
@@ -341,8 +346,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
                       <tr>
                         <th>User</th>
                         <th>Dir</th>
-                        <th>UID</th>
-                        <th>Dept</th>
+                        <th>Department</th>
                         <th>Admin</th>
                         <th>Time</th>
                       </tr>
@@ -777,8 +781,13 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 
       <div id="dailyLogsTab" class="tab-content">
         <section class="section">
-          <h1>Daily Logs</h1>
-          <p class="sub">Generate organized daily attendance outputs grouped by person, with overall IN/OUT times.</p>
+          <div class="daily-log-heading">
+            <div>
+              <h1>Daily Logs</h1>
+              <p class="sub">Filter attendance by date, department, role, or individual, then preview or print the results.</p>
+            </div>
+            <span class="daily-log-badge">Attendance reports</span>
+          </div>
           <section class="section admin-history-section" aria-labelledby="adminHistoryTitle">
             <div class="admin-history-heading">
               <div>
@@ -826,9 +835,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
                   <input id="adminHistoryTo" class="daily-report-date" type="date" />
                 </div>
                 <div class="daily-report-actions admin-history-actions">
-                  <button type="button" class="btn secondary compact" id="adminHistoryPrintBtn">Print</button>
-                  <button type="button" class="btn secondary compact" id="adminHistoryCsvBtn">Download CSV</button>
-                  <button type="button" class="btn secondary compact" id="adminHistoryXlsBtn">Download Excel</button>
+                  <button type="button" class="btn secondary compact" id="adminHistoryPrintBtn">Print history</button>
                 </div>
               </div>
 
@@ -853,37 +860,131 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
             </div>
           </section>
 
-          <div style="display:flex; gap:8px; align-items:center; margin:14px 0 10px 0; flex-wrap:wrap;">
-            <div class="daily-report-row">
-              <label for="dailyReportDate">Daily log</label>
-              <input id="dailyReportDate" class="daily-report-date" type="date" />
+          <div class="daily-report-tools">
+            <div class="daily-tools-heading">
+              <div>
+                <div class="daily-tools-kicker">Report builder</div>
+                <h2>Attendance report</h2>
+                <p>Choose a date range and refine the results before exporting.</p>
+              </div>
+              <div class="daily-range-badge"><span></span><strong id="dailyRangeLabel">Today</strong></div>
             </div>
-            <label for="dailyAdminFilter" style="font-size:13px; color:var(--muted); margin-left:6px;">Admin:</label>
-            <select id="dailyAdminFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color); background:var(--card-bg); color:var(--text-color);">
-              <option value="">All Admins</option>
-            </select>
-            <label style="font-size:13px; color:var(--muted); margin-left:8px; display:flex; align-items:center; gap:6px;">
-              <input type="checkbox" id="dailySuspiciousOnly" />
-              <span>Only suspicious</span>
-            </label>
+            <div class="daily-report-filters">
+              <div class="daily-filter daily-filter-date">
+                <label for="dailyReportFrom">From</label>
+                <input id="dailyReportFrom" class="daily-report-date" type="date" />
+              </div>
+              <div class="daily-filter daily-filter-date">
+                <label for="dailyReportTo">To</label>
+                <input id="dailyReportTo" class="daily-report-date" type="date" />
+              </div>
+              <div class="daily-filter daily-filter-week">
+                <label>&nbsp;</label>
+                <button type="button" class="btn secondary compact" id="dailyThisWeekBtn">This week</button>
+              </div>
+              <div class="daily-filter daily-filter-person">
+                <label for="dailyPersonFilter">Individual</label>
+                <input id="dailyPersonFilter" type="search" placeholder="Search name..." autocomplete="off" />
+              </div>
+              <div class="daily-filter">
+                <label for="dailyDepartmentFilter">Department</label>
+                <input id="dailyDepartmentFilter" type="search" placeholder="All departments" autocomplete="off" />
+              </div>
+              <div class="daily-filter">
+                <label for="dailyRoleFilter">Role</label>
+                <select id="dailyRoleFilter">
+                  <option value="">All roles</option>
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="staff">Staff</option>
+                  <option value="visitor">Visitor</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="daily-filter">
+                <label for="dailySort">Sort by</label>
+                <select id="dailySort">
+                  <option value="department">Department</option>
+                  <option value="role">Role</option>
+                  <option value="name">Name</option>
+                  <option value="time">Scan time</option>
+                </select>
+              </div>
+              <div class="daily-filter">
+                <label for="dailyAdminFilter">Recorded by</label>
+                <select id="dailyAdminFilter">
+                  <option value="">All admins</option>
+                </select>
+              </div>
+            </div>
+            <div class="daily-report-toolbar-footer">
+              <label class="daily-filter-check" for="dailySuspiciousOnly">
+                <input type="checkbox" id="dailySuspiciousOnly" />
+                <span>Only suspicious scans</span>
+              </label>
+              <div class="daily-export-panel">
+                <div class="daily-export-copy">
+                  <strong>Ready to export?</strong>
+                  <span>Use the preview to check your filters first.</span>
+                </div>
+                <div class="daily-report-actions">
+                  <button type="button" class="btn secondary compact" id="dailyPrintBtn">Print</button>
+                  <button type="button" class="btn secondary compact" id="dailyCsvBtn">CSV</button>
+                  <button type="button" class="btn compact daily-excel-btn" id="dailyXlsBtn">Export report</button>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div class="daily-report-actions" style="margin:14px 0 10px;">
-            <button type="button" class="btn secondary compact" id="dailyPrintBtn">Print Daily</button>
-            <button type="button" class="btn secondary compact" id="dailyCsvBtn">Download CSV</button>
-            <button type="button" class="btn secondary compact" id="dailyXlsBtn">Download Excel</button>
-          </div>
-          <div class="panel-table" style="height:70vh; min-height:520px;">
+          <div class="daily-preview-card">
+            <div class="daily-preview-header">
+              <div>
+                <strong>Report preview</strong>
+                <span id="dailyPreviewRange">Selected date range</span>
+              </div>
+              <span class="daily-preview-live"><i></i>Live preview</span>
+            </div>
+            <div class="panel-table daily-preview-table">
             <iframe id="dailyPreviewFrame" title="Daily logs preview" style="width:100%; height:100%; border:0; background:#fff;"></iframe>
+            </div>
           </div>
         </section>
       </div>
 
       <div id="settingsTab" class="tab-content">
         <section class="section">
-          <h1>Settings</h1>
-          <p class="sub">Customize the dashboard behavior and appearance.</p>
+          <div class="settings-page-header">
+            <div>
+              <div class="settings-eyebrow">Workspace preferences</div>
+              <h1>Settings</h1>
+              <p class="sub">Manage your system identity, display preferences, live updates, and notifications.</p>
+            </div>
+            <div class="settings-header-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 0 1 2 2v.35a7.86 7.86 0 0 1 1.73.72l.25-.25a2 2 0 1 1 2.83 2.83l-.25.25c.3.54.54 1.12.72 1.73H19a2 2 0 1 1 0 4h-.35a7.86 7.86 0 0 1-.72 1.73l.25.25a2 2 0 1 1-2.83 2.83l-.25-.25a7.86 7.86 0 0 1-1.73.72V20a2 2 0 1 1-4 0v-.35a7.86 7.86 0 0 1-1.73-.72l-.25.25a2 2 0 1 1-2.83-2.83l.25-.25a7.86 7.86 0 0 1-.72-1.73H4a2 2 0 1 1 0-4h.35c.18-.61.42-1.19.72-1.73l-.25-.25A2 2 0 1 1 7.65 5.56l.25.25a7.86 7.86 0 0 1 1.73-.72V4a2 2 0 0 1 2-2Zm0 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>
+            </div>
+          </div>
           <form id="settingsForm" class="settings-list">
+            <div class="settings-item settings-item-wide">
+              <div class="settings-item-main">
+                <div class="settings-item-title">System Branding</div>
+                <div class="settings-item-desc">Customize the title shown in the dashboard top bar, sidebar, browser tab, and login page.</div>
+              </div>
+              <div class="settings-item-control settings-branding-control">
+                <label for="settingSystemTitle">System title</label>
+                <input id="settingSystemTitle" name="system_title" type="text" maxlength="120" class="settings-input" placeholder="School Entrance Monitoring System" />
+                <label for="settingSchoolName">School or portal name</label>
+                <input id="settingSchoolName" name="school_name" type="text" maxlength="80" class="settings-input" placeholder="CAPSU GATE" />
+                <label for="settingLoginTitle">Login page title</label>
+                <input id="settingLoginTitle" name="login_title" type="text" maxlength="160" class="settings-input" placeholder="Secured RFID gate access" />
+                <label for="settingLoginIntro">Login page introduction</label>
+                <textarea id="settingLoginIntro" name="login_intro" rows="3" maxlength="500" class="settings-textarea" placeholder="Use {school_name} where the portal name should appear."></textarea>
+                <label for="settingDashboardLogo">Dashboard logo</label>
+                <input id="settingDashboardLogo" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="settings-input" />
+                <label for="settingLoginLogo">Login logo</label>
+                <input id="settingLoginLogo" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="settings-input" />
+                <label for="settingLoginBackground">Login background</label>
+                <input id="settingLoginBackground" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="settings-input" />
+              </div>
+            </div>
             <div class="settings-item">
               <div class="settings-item-main">
                 <div class="settings-item-title">Theme</div>
@@ -982,25 +1083,31 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
                 <textarea id="settingSmsLastOutTemplate" class="settings-textarea" rows="2" placeholder="Hello {name}, your OUT scan was recorded at {time}."></textarea>
               </div>
             </div>
-            <div class="settings-item settings-item-wide">
-              <div class="settings-item-main">
-                <div class="settings-item-title">Message a Student</div>
-                <div class="settings-item-desc">Send a message immediately to a student's registered phone number. SIM900A is used first, with TextBee as fallback when enabled.</div>
-              </div>
-              <div class="settings-item-control settings-sms-control">
-                <select id="settingSmsStudent" class="settings-select">
-                  <option value="">Select a student</option>
-                </select>
-                <textarea id="settingSmsCustomTemplate" class="settings-textarea" rows="3" placeholder="Example: Hello {name}, please contact the school office."></textarea>
-                <button type="button" class="btn secondary compact" id="sendStudentSmsBtn">Send SMS Now</button>
-                <div id="smsCustomMessagesList" class="sms-custom-list"></div>
-              </div>
-            </div>
             <div class="form-actions">
-              <button type="button" class="btn" id="saveSettingsBtn">Save Settings</button>
+              <div>
+                <strong class="settings-save-title">Ready to save changes?</strong>
+                <span class="settings-save-hint">Your preferences apply to this dashboard immediately.</span>
+              </div>
+              <button type="button" class="btn" id="saveSettingsBtn">Save changes</button>
               <span class="status-pill" id="settingsStatus"></span>
             </div>
           </form>
+          <div class="live-message-panel">
+            <div class="live-message-heading">
+              <div>
+                <h2>Live Message</h2>
+                <p class="sub">Send a message immediately to a student's registered phone number. This message is sent live and is not saved in Settings.</p>
+              </div>
+              <span class="status-pill" id="liveMessageStatus"></span>
+            </div>
+            <div class="live-message-controls">
+              <select id="settingSmsStudent" class="settings-select">
+                <option value="">Select a student</option>
+              </select>
+              <textarea id="settingSmsCustomTemplate" class="settings-textarea" rows="3" placeholder="Example: Hello {name}, please contact the school office."></textarea>
+              <button type="button" class="btn secondary compact" id="sendStudentSmsBtn">Send SMS Now</button>
+            </div>
+          </div>
         </section>
       </div>
     </main>
@@ -1215,6 +1322,13 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     const settingsFormEl = document.getElementById('settingsForm');
     const settingsStatusEl = document.getElementById('settingsStatus');
     const settingThemeEl = document.getElementById('settingTheme');
+    const settingSystemTitleEl = document.getElementById('settingSystemTitle');
+    const settingSchoolNameEl = document.getElementById('settingSchoolName');
+    const settingLoginTitleEl = document.getElementById('settingLoginTitle');
+    const settingLoginIntroEl = document.getElementById('settingLoginIntro');
+    const settingDashboardLogoEl = document.getElementById('settingDashboardLogo');
+    const settingLoginLogoEl = document.getElementById('settingLoginLogo');
+    const settingLoginBackgroundEl = document.getElementById('settingLoginBackground');
     const settingFontSizeEl = document.getElementById('settingFontSize');
     const settingRefreshTodayEl = document.getElementById('settingRefreshToday');
     const settingRefreshInsideEl = document.getElementById('settingRefreshInside');
@@ -1227,16 +1341,25 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     const settingSmsStudentEl = document.getElementById('settingSmsStudent');
     const settingSmsCustomTemplateEl = document.getElementById('settingSmsCustomTemplate');
     const sendStudentSmsBtnEl = document.getElementById('sendStudentSmsBtn');
-    const smsCustomMessagesListEl = document.getElementById('smsCustomMessagesList');
     const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-    const dailyReportDateEl = document.getElementById('dailyReportDate');
+    const deviceStatusGroupEl = document.getElementById('deviceStatusGroup');
+    const dailyReportFromEl = document.getElementById('dailyReportFrom');
+    const dailyReportToEl = document.getElementById('dailyReportTo');
+    const dailyThisWeekBtnEl = document.getElementById('dailyThisWeekBtn');
     const dailyAdminFilterEl = document.getElementById('dailyAdminFilter');
+    const dailyDepartmentFilterEl = document.getElementById('dailyDepartmentFilter');
+    const dailyRoleFilterEl = document.getElementById('dailyRoleFilter');
+    const dailyPersonFilterEl = document.getElementById('dailyPersonFilter');
+    const dailySortEl = document.getElementById('dailySort');
     const dailySuspiciousOnlyEl = document.getElementById('dailySuspiciousOnly');
     const dailyPreviewFrameEl = document.getElementById('dailyPreviewFrame');
+    const dailyRangeLabelEl = document.getElementById('dailyRangeLabel');
+    const dailyPreviewRangeEl = document.getElementById('dailyPreviewRange');
     const dailyPrintBtn = document.getElementById('dailyPrintBtn');
     const dailyCsvBtn = document.getElementById('dailyCsvBtn');
     const dailyXlsBtn = document.getElementById('dailyXlsBtn');
     let idCardTimeout = null;
+    let idCardRequestToken = 0;
     const registerSignalStartMs = Date.now();
     let lastScanId = 0;
     const themeSwitcher = document.getElementById('themeSwitcher');
@@ -1326,21 +1449,49 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       return `${year}-${month}-${day}`;
     }
 
-    function getSelectedDailyReportDate() {
-      if (dailyReportDateEl && dailyReportDateEl.value) {
-        return dailyReportDateEl.value;
-      }
-      return formatLocalDateInput(new Date());
+    function getDailyReportRange() {
+      const today = formatLocalDateInput(new Date());
+      const from = dailyReportFromEl && dailyReportFromEl.value ? dailyReportFromEl.value : today;
+      const to = dailyReportToEl && dailyReportToEl.value ? dailyReportToEl.value : from;
+      return { from, to };
+    }
+
+    function updateDailyRangeLabels() {
+      const range = getDailyReportRange();
+      const label = range.from === range.to ? range.from : `${range.from} to ${range.to}`;
+      if (dailyRangeLabelEl) dailyRangeLabelEl.textContent = label;
+      if (dailyPreviewRangeEl) dailyPreviewRangeEl.textContent = label;
+    }
+
+    function setThisWeekRange() {
+      const today = new Date();
+      const day = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      if (dailyReportFromEl) dailyReportFromEl.value = formatLocalDateInput(monday);
+      if (dailyReportToEl) dailyReportToEl.value = formatLocalDateInput(sunday);
+      refreshDailyPreview();
     }
 
     function openDailyReport(format) {
       const url = new URL('../api/scans/daily_report.php', window.location.href);
-      url.searchParams.set('date', getSelectedDailyReportDate());
+      const range = getDailyReportRange();
+      url.searchParams.set('date_from', range.from);
+      url.searchParams.set('date_to', range.to);
       url.searchParams.set('format', format);
       const adminUid = dailyAdminFilterEl ? dailyAdminFilterEl.value : '';
       if (adminUid) {
         url.searchParams.set('admin_uid', adminUid);
       }
+      const department = dailyDepartmentFilterEl ? dailyDepartmentFilterEl.value.trim() : '';
+      if (department) url.searchParams.set('department', department);
+      const role = dailyRoleFilterEl ? dailyRoleFilterEl.value : '';
+      if (role) url.searchParams.set('role', role);
+      const personName = dailyPersonFilterEl ? dailyPersonFilterEl.value.trim() : '';
+      if (personName) url.searchParams.set('person_name', personName);
+      if (dailySortEl && dailySortEl.value) url.searchParams.set('sort', dailySortEl.value);
       if (dailySuspiciousOnlyEl && dailySuspiciousOnlyEl.checked) {
         url.searchParams.set('suspicious', '1');
       }
@@ -1361,16 +1512,27 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         return;
       }
       const url = new URL('../api/scans/daily_report.php', window.location.href);
-      url.searchParams.set('date', getSelectedDailyReportDate());
+      const range = getDailyReportRange();
+      url.searchParams.set('date_from', range.from);
+      url.searchParams.set('date_to', range.to);
       url.searchParams.set('format', 'print');
+      url.searchParams.set('preview', '1');
       const adminUid = dailyAdminFilterEl ? dailyAdminFilterEl.value : '';
       if (adminUid) {
         url.searchParams.set('admin_uid', adminUid);
       }
+      const department = dailyDepartmentFilterEl ? dailyDepartmentFilterEl.value.trim() : '';
+      if (department) url.searchParams.set('department', department);
+      const role = dailyRoleFilterEl ? dailyRoleFilterEl.value : '';
+      if (role) url.searchParams.set('role', role);
+      const personName = dailyPersonFilterEl ? dailyPersonFilterEl.value.trim() : '';
+      if (personName) url.searchParams.set('person_name', personName);
+      if (dailySortEl && dailySortEl.value) url.searchParams.set('sort', dailySortEl.value);
       if (dailySuspiciousOnlyEl && dailySuspiciousOnlyEl.checked) {
         url.searchParams.set('suspicious', '1');
       }
       dailyPreviewFrameEl.src = url.toString();
+      updateDailyRangeLabels();
     }
 
     function setStats(stats) {
@@ -2342,6 +2504,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     }
 
     function hideIdCard() {
+      idCardRequestToken += 1;
       if (idCardDisplayEl) {
         idCardDisplayEl.classList.add('hidden');
         idCardDisplayEl.querySelector('.id-card').classList.remove('highlight');
@@ -2354,11 +2517,17 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     async function showIdCardForUser(uid) {
       if (!idCardDisplayEl || !idCardPlaceholderEl) return;
 
+      const requestToken = ++idCardRequestToken;
+      const scannedUid = normalizeScanUid(uid);
       try {
         const res = await fetch(`../api/users/get_user.php?uid=${encodeURIComponent(uid)}`);
         const data = await res.json();
 
-        if (data.ok && data.data) {
+        if (requestToken !== idCardRequestToken) {
+          return;
+        }
+
+        if (data.ok && data.data && normalizeScanUid(data.data.uid) === scannedUid) {
           const user = data.data;
           
           idCardPhotoEl.src = getProfilePhotoSrc(user.photo);
@@ -2392,15 +2561,22 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           // if (idCardTimeout) clearTimeout(idCardTimeout);
           // setTimeout(() => cardEl.classList.remove('highlight'), 4000);
           // idCardTimeout = setTimeout(hideIdCard, 12000);
-        } else {
+        } else if (requestToken === idCardRequestToken) {
           // TEMPORARY: disable auto-hide for layout editing
           // hideIdCard();
         }
       } catch (err) {
+        if (requestToken !== idCardRequestToken) {
+          return;
+        }
         console.error("Failed to fetch user for ID card", err);
         // TEMPORARY: disable auto-hide for layout editing
         // hideIdCard();
       }
+    }
+
+    function normalizeScanUid(uid) {
+      return String(uid || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
     }
 
     function closeUserProfile() {
@@ -2704,7 +2880,6 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           newHtml += `<tr ${trClass}${profileAttribute} data-scan-id="${escapeHtml(row.id)}" data-direction="${escapeHtml(dir)}">
             <td>${userDisplay}</td>
             <td>${escapeHtml(dir)}</td>
-            <td>${escapeHtml(uid)}</td>
             <td>${escapeHtml(deptDisplay)}</td>
             <td>${escapeHtml(adminDisplay)}</td>
             <td>${escapeHtml(createdAt)}</td>
@@ -3182,13 +3357,23 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     loadSuspicious();
     showPrompt();
     pollRegisterSignal();
-    if (dailyReportDateEl) {
-      dailyReportDateEl.value = formatLocalDateInput(new Date());
-      dailyReportDateEl.addEventListener('change', refreshDailyPreview);
+    if (dailyReportFromEl && dailyReportToEl) {
+      dailyReportFromEl.value = formatLocalDateInput(new Date());
+      dailyReportToEl.value = formatLocalDateInput(new Date());
+      dailyReportFromEl.addEventListener('change', refreshDailyPreview);
+      dailyReportToEl.addEventListener('change', refreshDailyPreview);
+    }
+    if (dailyThisWeekBtnEl) {
+      dailyThisWeekBtnEl.addEventListener('click', setThisWeekRange);
     }
     if (dailyAdminFilterEl) {
       dailyAdminFilterEl.addEventListener('change', refreshDailyPreview);
     }
+    [dailyDepartmentFilterEl, dailyRoleFilterEl, dailyPersonFilterEl, dailySortEl].forEach(element => {
+      if (!element) return;
+      element.addEventListener('input', refreshDailyPreview);
+      element.addEventListener('change', refreshDailyPreview);
+    });
     if (dailySuspiciousOnlyEl) {
       dailySuspiciousOnlyEl.addEventListener('change', refreshDailyPreview);
     }
@@ -3502,7 +3687,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         }
         if (notificationListEl) {
           notificationListEl.innerHTML = rows.length ? rows.map(row =>
-            `<div class="notification-row ${String(row.is_read) === '0' ? 'unread' : ''}">
+            `<div class="notification-row ${String(row.is_read) === '0' ? 'unread' : ''}" data-notification-id="${escapeHtml(row.id)}" tabindex="0" role="button">
               <strong>${escapeHtml(row.title || 'Notification')}</strong>
               <div>${escapeHtml(row.message || '')}</div>
               <small>${escapeHtml(row.created_at || '')}</small>
@@ -3516,6 +3701,42 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       notificationButtonEl.addEventListener('click', () => {
         notificationPanelEl.classList.toggle('hidden');
         if (!notificationPanelEl.classList.contains('hidden')) loadNotifications();
+      });
+    }
+    async function markNotificationRead(notificationId) {
+      const response = await fetch('../api/admin/mark_notifications_read.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ notification_id: notificationId })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || 'Unable to mark notification as read');
+      await loadNotifications();
+    }
+    function markNotificationRowAsRead(row) {
+      if (!row || !row.classList.contains('unread')) return;
+      row.classList.remove('unread');
+      if (notificationCountEl) {
+        const unread = Math.max(0, Number(notificationCountEl.textContent || 0) - 1);
+        notificationCountEl.textContent = unread;
+        notificationCountEl.classList.toggle('hidden', unread === 0);
+      }
+      markNotificationRead(row.dataset.notificationId).catch(error => {
+        console.error(error);
+        loadNotifications();
+      });
+    }
+    if (notificationListEl) {
+      notificationListEl.addEventListener('click', event => {
+        const row = event.target.closest('.notification-row');
+        markNotificationRowAsRead(row);
+      });
+      notificationListEl.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const row = event.target.closest('.notification-row');
+        if (!row || !row.classList.contains('unread')) return;
+        event.preventDefault();
+        markNotificationRowAsRead(row);
       });
     }
     const markNotificationsReadEl = document.getElementById('markNotificationsRead');
@@ -3542,6 +3763,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 
     // Settings logic
     let settingsData = {
+      system_title: 'School Entrance Monitoring System',
+      school_name: 'CAPSU GATE',
       theme: 'light',
       font_size: 'medium',
       refresh_today_scan: 5,
@@ -3551,28 +3774,11 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       sms_first_in_enabled: '1',
       sms_first_in_template: 'Hello {name}, your first IN scan today was recorded at {time}.',
       sms_last_out_enabled: '1',
-      sms_last_out_template: 'Hello {name}, your OUT scan was recorded at {time}.',
-      sms_custom_messages: '{}'
+      sms_last_out_template: 'Hello {name}, your OUT scan was recorded at {time}.'
     };
-
-    let smsCustomMessages = {};
 
     function normalizeSmsUid(uid) {
       return String(uid || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
-    }
-
-    function renderSmsCustomMessages() {
-      if (!smsCustomMessagesListEl) return;
-      const entries = Object.entries(smsCustomMessages);
-      smsCustomMessagesListEl.innerHTML = entries.length
-        ? entries.map(([uid, message]) => `<div class="sms-custom-row"><span>${escapeHtml(uid)}</span><span>${escapeHtml(message)}</span><button type="button" class="btn secondary compact" data-remove-sms-uid="${escapeHtml(uid)}">Remove</button></div>`).join('')
-        : '<span class="muted">No custom student messages.</span>';
-      smsCustomMessagesListEl.querySelectorAll('[data-remove-sms-uid]').forEach(button => {
-        button.addEventListener('click', () => {
-          delete smsCustomMessages[button.dataset.removeSmsUid];
-          renderSmsCustomMessages();
-        });
-      });
     }
 
     async function loadSmsStudents() {
@@ -3594,6 +3800,22 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       if (!settings) return;
       settingsData = { ...settingsData, ...settings };
 
+      const systemTitle = String(settingsData.system_title || 'School Entrance Monitoring System').trim();
+      const schoolName = String(settingsData.school_name || 'CAPSU GATE').trim();
+      const loginTitle = String(settingsData.login_title || 'Secured RFID gate access').trim();
+      const loginIntro = String(settingsData.login_intro || '').trim();
+      if (settingSystemTitleEl) settingSystemTitleEl.value = systemTitle;
+      if (settingSchoolNameEl) settingSchoolNameEl.value = schoolName;
+      if (settingLoginTitleEl) settingLoginTitleEl.value = loginTitle;
+      if (settingLoginIntroEl) settingLoginIntroEl.value = loginIntro;
+      const systemTitleTextEl = document.getElementById('systemTitleText');
+      const schoolNameTextEl = document.getElementById('schoolNameText');
+      if (systemTitleTextEl) systemTitleTextEl.textContent = systemTitle;
+      if (schoolNameTextEl) schoolNameTextEl.textContent = schoolName;
+      document.querySelectorAll('#dashboardLogoTop, #dashboardLogoSide').forEach((logo) => {
+        if (settingsData.dashboard_logo) logo.src = settingsData.dashboard_logo;
+      });
+      document.title = systemTitle;
       if (settingThemeEl) settingThemeEl.checked = settingsData.theme === 'dark';
       if (settingFontSizeEl) settingFontSizeEl.value = settingsData.font_size || 'medium';
       if (settingRefreshTodayEl) settingRefreshTodayEl.value = settingsData.refresh_today_scan || 5;
@@ -3604,14 +3826,6 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       if (settingSmsFirstInTemplateEl) settingSmsFirstInTemplateEl.value = settingsData.sms_first_in_template || '';
       if (settingSmsLastOutEl) settingSmsLastOutEl.checked = settingsData.sms_last_out_enabled !== '0';
       if (settingSmsLastOutTemplateEl) settingSmsLastOutTemplateEl.value = settingsData.sms_last_out_template || '';
-      try {
-        smsCustomMessages = JSON.parse(settingsData.sms_custom_messages || '{}');
-        if (!smsCustomMessages || typeof smsCustomMessages !== 'object' || Array.isArray(smsCustomMessages)) smsCustomMessages = {};
-      } catch (err) {
-        smsCustomMessages = {};
-      }
-      renderSmsCustomMessages();
-
       document.body.classList.remove('dark-mode');
       document.body.classList.remove('font-size-small', 'font-size-medium', 'font-size-large');
       if (settingsData.theme === 'dark') {
@@ -3629,15 +3843,49 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         if (data.ok && data.data) {
           applySettings(data.data);
         }
+
       } catch (e) {
         // ignore
+      }
+    }
+
+    async function loadDeviceStatus() {
+      try {
+        const res = await fetch('../api/system/get_device_status.php', { cache: 'no-store' });
+        const data = await res.json();
+        if (!data.ok || !data.data) return;
+        document.querySelectorAll('[data-device-status]').forEach(dot => {
+          const device = dot.dataset.deviceStatus;
+          const online = data.data[device] && data.data[device].online;
+          dot.classList.toggle('online', Boolean(online));
+          dot.classList.toggle('offline', !online);
+          dot.title = online ? `${device} online` : `${device} offline`;
+        });
+      } catch (err) {
+        if (deviceStatusGroupEl) deviceStatusGroupEl.title = 'Device status unavailable';
       }
     }
 
     if (saveSettingsBtn) {
       saveSettingsBtn.addEventListener('click', async () => {
         if (settingsStatusEl) settingsStatusEl.textContent = 'Saving...';
+        const uploadAsset = async (input, kind) => {
+          if (!input || !input.files || !input.files[0]) return settingsData[kind] || '';
+          const formData = new FormData();
+          formData.append('asset', input.files[0]);
+          formData.append('kind', kind);
+          const uploadResponse = await fetch('../api/system/upload_branding.php', { method: 'POST', body: formData });
+          const uploadData = await uploadResponse.json();
+          if (!uploadResponse.ok || !uploadData.ok || !uploadData.url) {
+            throw new Error(uploadData.error || 'Image upload failed');
+          }
+          return uploadData.url;
+        };
         const payload = {
+          system_title: settingSystemTitleEl ? settingSystemTitleEl.value.trim() : 'School Entrance Monitoring System',
+          school_name: settingSchoolNameEl ? settingSchoolNameEl.value.trim() : 'CAPSU GATE',
+          login_title: settingLoginTitleEl ? settingLoginTitleEl.value.trim() : 'Secured RFID gate access',
+          login_intro: settingLoginIntroEl ? settingLoginIntroEl.value.trim() : '',
           theme: settingThemeEl && settingThemeEl.checked ? 'dark' : 'light',
           font_size: settingFontSizeEl ? settingFontSizeEl.value : 'medium',
           refresh_today_scan: settingRefreshTodayEl ? settingRefreshTodayEl.value : 5,
@@ -3647,10 +3895,12 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           sms_first_in_enabled: settingSmsFirstInEl && settingSmsFirstInEl.checked ? '1' : '0',
           sms_first_in_template: settingSmsFirstInTemplateEl ? settingSmsFirstInTemplateEl.value : '',
           sms_last_out_enabled: settingSmsLastOutEl && settingSmsLastOutEl.checked ? '1' : '0',
-          sms_last_out_template: settingSmsLastOutTemplateEl ? settingSmsLastOutTemplateEl.value : '',
-          sms_custom_messages: JSON.stringify(smsCustomMessages)
+          sms_last_out_template: settingSmsLastOutTemplateEl ? settingSmsLastOutTemplateEl.value : ''
         };
         try {
+          payload.dashboard_logo = await uploadAsset(settingDashboardLogoEl, 'dashboard_logo');
+          payload.login_logo = await uploadAsset(settingLoginLogoEl, 'login_logo');
+          payload.login_background = await uploadAsset(settingLoginBackgroundEl, 'login_background');
           const res = await fetch('../api/system/save_settings.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3665,21 +3915,22 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
             if (settingsStatusEl) settingsStatusEl.textContent = data.error || 'Save failed';
           }
         } catch (err) {
-          if (settingsStatusEl) settingsStatusEl.textContent = 'Network error';
+          if (settingsStatusEl) settingsStatusEl.textContent = err.message || 'Save failed';
         }
       });
     }
 
     if (sendStudentSmsBtnEl) {
       sendStudentSmsBtnEl.addEventListener('click', async () => {
+        const liveMessageStatusEl = document.getElementById('liveMessageStatus');
         const uid = settingSmsStudentEl ? settingSmsStudentEl.value : '';
         const message = settingSmsCustomTemplateEl ? settingSmsCustomTemplateEl.value.trim() : '';
         if (!uid) {
-          if (settingsStatusEl) settingsStatusEl.textContent = 'Select a student first';
+          if (liveMessageStatusEl) liveMessageStatusEl.textContent = 'Select a student first';
           return;
         }
         sendStudentSmsBtnEl.disabled = true;
-        if (settingsStatusEl) settingsStatusEl.textContent = 'Sending...';
+        if (liveMessageStatusEl) liveMessageStatusEl.textContent = 'Sending...';
         try {
           const res = await fetch('../api/admin/send_student_sms.php', {
             method: 'POST',
@@ -3688,14 +3939,14 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
           });
           const data = await res.json();
           if (!res.ok || !data.ok) {
-            if (settingsStatusEl) settingsStatusEl.textContent = data.error || 'SMS failed';
+            if (liveMessageStatusEl) liveMessageStatusEl.textContent = data.error || 'SMS failed';
             return;
           }
-          if (settingsStatusEl) settingsStatusEl.textContent =
+          if (liveMessageStatusEl) liveMessageStatusEl.textContent =
             data.action === 'queued_for_sim900a' ? 'Queued for SIM900A' : 'SMS sent';
           if (settingSmsCustomTemplateEl) settingSmsCustomTemplateEl.value = '';
         } catch (err) {
-          if (settingsStatusEl) settingsStatusEl.textContent = 'Network error';
+          if (liveMessageStatusEl) liveMessageStatusEl.textContent = 'Network error';
         } finally {
           sendStudentSmsBtnEl.disabled = false;
         }
@@ -3750,6 +4001,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 
     loadSettings();
     loadSmsStudents();
+    loadDeviceStatus();
+    setInterval(loadDeviceStatus, 15000);
     restartPollingIntervals();
   </script>
 </body>

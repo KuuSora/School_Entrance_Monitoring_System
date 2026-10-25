@@ -14,7 +14,7 @@ return [
 
     // SMS provider: 'textbee' uses the web gateway; 'sim900a' lets the ESP32
     // send the SMS through its connected SIM900A modem.
-    'sms_provider' => 'sim900a',
+    'sms_provider' => 'textbee',
     // TextBee SMS Gateway (https://textbee.dev)
     'textbee_enabled' => true,
     'textbee_api_key' => 'c832da0c-e199-4da5-b069-a32dc99da5be',

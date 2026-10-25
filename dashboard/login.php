@@ -1,6 +1,41 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/../api/system/db.php';
+
+$branding = [
+  'system_title' => 'School Entrance Monitoring System',
+  'school_name' => 'CAPSU GATE',
+  'login_logo' => '../image/Capiz_State_University.png',
+  'login_title' => 'Secured RFID gate access',
+  'login_intro' => 'Ensuring a safe, smart, and efficient entry experience for {school_name} students, faculty, and staff.',
+  'login_background' => '../image/capsu_pilar_gate.jpg',
+];
+$mysqli->query("CREATE TABLE IF NOT EXISTS settings (
+  setting_key VARCHAR(64) PRIMARY KEY,
+  setting_value TEXT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)");
+$brandingResult = $mysqli->query(
+  "SELECT setting_key, setting_value FROM settings
+   WHERE setting_key IN ('system_title', 'school_name', 'login_logo', 'login_title', 'login_intro', 'login_background')"
+);
+if ($brandingResult) {
+  while ($brandingRow = $brandingResult->fetch_assoc()) {
+    if ($brandingRow['setting_value'] !== null && trim($brandingRow['setting_value']) !== '') {
+      $branding[$brandingRow['setting_key']] = trim($brandingRow['setting_value']);
+    }
+  }
+  $brandingResult->free();
+}
+$systemTitle = htmlspecialchars($branding['system_title'], ENT_QUOTES, 'UTF-8');
+$schoolName = htmlspecialchars($branding['school_name'], ENT_QUOTES, 'UTF-8');
+$loginLogo = htmlspecialchars($branding['login_logo'], ENT_QUOTES, 'UTF-8');
+$loginTitle = htmlspecialchars($branding['login_title'], ENT_QUOTES, 'UTF-8');
+$loginIntro = str_replace('{school_name}', $schoolName, $branding['login_intro']);
+$loginIntro = htmlspecialchars($loginIntro, ENT_QUOTES, 'UTF-8');
+$loginBackground = htmlspecialchars($branding['login_background'], ENT_QUOTES, 'UTF-8');
+
 function is_local_dev_request(): bool {
   $remote_addr = $_SERVER['REMOTE_ADDR'] ?? '';
   $host = strtolower($_SERVER['HTTP_HOST'] ?? '');
@@ -34,7 +69,7 @@ if (isset($_SESSION['admin_uid'])) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RFID Admin Access</title>
+  <title><?php echo $systemTitle; ?> - Admin Access</title>
   <style>
 /* Theme: professional (v2) */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
@@ -57,7 +92,7 @@ body {
   margin: 0;
   font-family: "IBM Plex Sans", system-ui, sans-serif;
   color: var(--ink);
-  background: url('../image/capsu_pilar_gate.jpg') center/cover no-repeat fixed;
+  background: url('<?php echo $loginBackground; ?>') center/cover no-repeat fixed;
   min-height: 100vh;
   position: relative;
 }
@@ -298,12 +333,12 @@ body::before {
     <div class="layout">
       <section class="hero">
         <div class="brand fade-up">
-          <img src="../image/Capiz_State_University.png" alt="CAPSU Logo" class="brand-mark">
-          School Entrance Gate Monitoring System
+          <img src="<?php echo $loginLogo; ?>" alt="CAPSU Logo" class="brand-mark">
+          <?php echo $systemTitle; ?>
         </div>
-        <h1 class="hero-title fade-up delay-1">Secured RFID Gate access for <span>Capsunians</span></h1>
+        <h1 class="hero-title fade-up delay-1"><?php echo $loginTitle; ?> <span><?php echo $schoolName; ?></span></h1>
         <p class="hero-sub fade-up delay-2">
-          Ensuring a safe, smart, and efficient campus entry for students, faculty, and staff.
+          <?php echo $loginIntro; ?>
         </p>
         <div class="hero-badges fade-up delay-3">
           <div class="badge">Admin Card Verified</div>

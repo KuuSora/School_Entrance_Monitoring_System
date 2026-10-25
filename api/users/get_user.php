@@ -27,6 +27,7 @@ if ($uid === '') {
     echo json_encode(['ok' => false, 'error' => 'Missing uid']);
     exit;
 }
+$uid_norm = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
 
 $studentEmail = columnOrNull($mysqli, 'students', 'email', 'email');
 $studentPhone = columnOrNull($mysqli, 'students', 'phone', 'phone');
@@ -50,30 +51,30 @@ $sql = "SELECT uid, name, student_id, course, school_year, section,
          NULL AS faculty_id, NULL AS staff_id, NULL AS department,
          NULL AS purpose, NULL AS valid_until,
          {$studentEmail}, {$studentPhone}, {$studentNotes}, {$studentPhoto}, 'student' AS role
-     FROM students WHERE uid = ?
+     FROM students WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          faculty_id, NULL, department,
          NULL, NULL,
          {$facultyEmail}, {$facultyPhone}, {$facultyNotes}, {$facultyPhoto}, 'faculty' AS role
-     FROM faculty WHERE uid = ?
+     FROM faculty WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          NULL, staff_id, department,
          NULL, NULL,
          {$staffEmail}, {$staffPhone}, {$staffNotes}, {$staffPhoto}, 'staff' AS role
-     FROM staff WHERE uid = ?
+     FROM staff WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          NULL, NULL, NULL,
          purpose, valid_until,
          {$visitorEmail}, {$visitorPhone}, {$visitorNotes}, {$visitorPhoto}, 'visitor' AS role
-     FROM visitors WHERE uid = ?
+     FROM visitors WHERE REPLACE(UPPER(uid), ':', '') = ?
      UNION ALL
      SELECT uid, name, NULL, NULL, NULL, NULL,
          NULL, NULL, NULL,
          NULL, NULL, NULL, NULL, NULL, NULL, 'admin' AS role
-     FROM admins WHERE uid = ?
+     FROM admins WHERE REPLACE(UPPER(uid), ':', '') = ?
      LIMIT 1";
 
 $stmt = $mysqli->prepare($sql);
@@ -82,7 +83,7 @@ if (!$stmt) {
     echo json_encode(['ok' => false, 'error' => 'Query preparation failed']);
     exit;
 }
-$stmt->bind_param('sssss', $uid, $uid, $uid, $uid, $uid);
+$stmt->bind_param('sssss', $uid_norm, $uid_norm, $uid_norm, $uid_norm, $uid_norm);
 $stmt->execute();
 $res = $stmt->get_result();
 $user = $res->fetch_assoc();

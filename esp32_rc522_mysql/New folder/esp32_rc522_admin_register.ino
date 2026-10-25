@@ -298,6 +298,16 @@ void handleSerialCommands() {
     return;
   }
 
+  if (line == "RUN_DIAGNOSTICS") {
+    runDiagnostics();
+    return;
+  }
+
+  if (line == "RUN_OUTPUT_TEST") {
+    runOutputTest();
+    return;
+  }
+
   if (line == "GET_TARGET") {
     Serial.print("API root: "); Serial.println(serverTarget);
     return;
@@ -311,7 +321,53 @@ void handleSerialCommands() {
     return;
   }
 
-  Serial.println("Unknown command. Use GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, or RESET_URL");
+  Serial.println("Unknown command. Use RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <api root>, SET_PATH <api root>, or RESET_URL");
+}
+
+void runOutputTest() {
+  Serial.println("[DIAG] Output test starting. Check LEDs visually.");
+  digitalWrite(LED_IN_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_IN_PIN, LOW);
+  digitalWrite(LED_OUT_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_OUT_PIN, LOW);
+  digitalWrite(LED_ADMIN_PIN, HIGH);
+  delay(300);
+  digitalWrite(LED_ADMIN_PIN, LOW);
+  Serial.println("[DIAG] LEDs tested: IN, OUT, ADMIN.");
+  updateLEDs();
+  updateAdminBlink();
+}
+
+void runDiagnostics() {
+  Serial.println();
+  Serial.println("=== HARDWARE DIAGNOSTICS (ADMIN SCANNER) ===");
+  Serial.println("[INFO] GPIO outputs cannot detect a disconnected wire without loopback.");
+  Serial.println("[PIN] SS=25, RST=27, BUTTON=4, LED_IN=2, LED_OUT=15, LED_ADMIN=13");
+  Serial.print("[BUTTON] ");
+  Serial.println(digitalRead(BUTTON_PIN) == LOW ? "PRESSED" : "RELEASED");
+
+  pinMode(SS_PIN, OUTPUT);
+  digitalWrite(SS_PIN, HIGH);
+  pinMode(RST_PIN, OUTPUT);
+  digitalWrite(RST_PIN, LOW);
+  delay(5);
+  digitalWrite(RST_PIN, HIGH);
+  delay(50);
+  SPI.begin();
+  mfrc522.PCD_Init();
+  byte version = mfrc522.PCD_ReadRegister(MFRC522::VersionReg);
+  Serial.print("[RC522] Version register: 0x");
+  Serial.println(version, HEX);
+  Serial.println((version == 0x00 || version == 0xFF)
+    ? "[RC522] FAIL - check 3.3V, GND, SPI, SS=25, RST=27"
+    : "[RC522] PASS - SPI communication detected");
+  Serial.print("[WIFI] ");
+  Serial.println(networkReady() ? "PASS - connected" : "FAIL - not connected");
+  if (networkReady()) debugPrintWifiInfo();
+  Serial.println("[LED] Run RUN_OUTPUT_TEST and confirm all three LEDs light.");
+  Serial.println("=== DIAGNOSTICS COMPLETE ===");
 }
 
 String uidToString(MFRC522::Uid* uid) {
@@ -438,7 +494,7 @@ void setup() {
   serverTarget = loadServerTarget();
   if (DEBUG_SERIAL) {
     Serial.print("Server target: "); Serial.println(serverTarget);
-    Serial.println("Commands: GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
+    Serial.println("Commands: RUN_DIAGNOSTICS, RUN_OUTPUT_TEST, GET_URL, GET_TARGET, SET_URL <url>, SET_PATH <path>, RESET_URL");
   }
 
   pinMode(SS_PIN, OUTPUT);
@@ -503,4 +559,3 @@ void loop() {
     }
   }
 }
-

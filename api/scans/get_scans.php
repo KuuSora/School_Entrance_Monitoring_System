@@ -74,8 +74,8 @@ $result = $mysqli->query(
           SELECT uid, name, "visitor" AS role, NULL AS department, NULL AS admin_role FROM visitors
           UNION ALL
           SELECT uid, name, "admin" AS role, NULL AS department, admin_role FROM admins
-      ) p ON s.uid = p.uid
-     LEFT JOIN admins a ON s.admin_uid = a.uid
+      ) p ON REPLACE(UPPER(s.uid), \':\', \'\') = REPLACE(UPPER(p.uid), \':\', \'\')
+     LEFT JOIN admins a ON REPLACE(UPPER(s.admin_uid), \':\', \'\') = REPLACE(UPPER(a.uid), \':\', \'\')
      LEFT JOIN (
          SELECT s2.id AS cur_id
          FROM scans s1

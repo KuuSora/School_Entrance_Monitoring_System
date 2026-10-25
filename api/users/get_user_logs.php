@@ -13,6 +13,7 @@ if ($uid === '') {
     echo json_encode(['ok' => false, 'error' => 'Missing uid']);
     exit;
 }
+$uid_norm = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
 
 $stmt = $mysqli->prepare(
         "SELECT s.id, s.uid, s.direction, s.created_at, p.name, p.role,
@@ -20,7 +21,7 @@ $stmt = $mysqli->prepare(
                 COALESCE(a.name, '') AS admin_name,
                 CASE WHEN ss.cur_id IS NULL THEN 0 ELSE 1 END AS suspicious
          FROM scans s
-         LEFT JOIN admins a ON s.admin_uid = a.uid
+         LEFT JOIN admins a ON REPLACE(UPPER(s.admin_uid), ':', '') = REPLACE(UPPER(a.uid), ':', '')
          LEFT JOIN (
              SELECT uid, name, 'student' AS role FROM students
              UNION ALL
@@ -29,7 +30,7 @@ $stmt = $mysqli->prepare(
              SELECT uid, name, 'staff' AS role FROM staff
              UNION ALL
              SELECT uid, name, 'visitor' AS role FROM visitors
-         ) p ON s.uid = p.uid
+         ) p ON REPLACE(UPPER(s.uid), ':', '') = REPLACE(UPPER(p.uid), ':', '')
          LEFT JOIN (
              SELECT s2.id AS cur_id
              FROM scans s1
@@ -38,11 +39,11 @@ $stmt = $mysqli->prepare(
              )
              WHERE s1.direction = s2.direction
          ) ss ON ss.cur_id = s.id
-         WHERE s.uid = ?
+         WHERE REPLACE(UPPER(s.uid), ':', '') = ?
          ORDER BY s.id DESC
          LIMIT ?"
 );
-$stmt->bind_param('si', $uid, $limit);
+$stmt->bind_param('si', $uid_norm, $limit);
 $stmt->execute();
 $res = $stmt->get_result();
 

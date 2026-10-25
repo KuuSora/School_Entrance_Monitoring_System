@@ -41,11 +41,16 @@ if (!$phone) {
 }
 
 $eventType = 'admin_message';
+$config = require __DIR__ . '/../system/config.php';
+$provider = strtolower((string)($config['sms_provider'] ?? 'sim900a')) === 'textbee'
+    ? 'textbee'
+    : 'sim900a';
+$fallbackAt = $provider === 'sim900a' ? date('Y-m-d H:i:s', time() + 60) : null;
 $stmt = $mysqli->prepare(
     "INSERT INTO notifications (uid, phone, message, event_type, provider, status, fallback_at)
-     VALUES (?, ?, ?, ?, 'sim900a', 'queued', DATE_ADD(NOW(), INTERVAL 1 MINUTE))"
+     VALUES (?, ?, ?, ?, ?, 'queued', ?)"
 );
-$stmt->bind_param('ssss', $uidNorm, $phone, $message, $eventType);
+$stmt->bind_param('ssssss', $uidNorm, $phone, $message, $eventType, $provider, $fallbackAt);
 if (!$stmt->execute()) {
     $stmt->close();
     http_response_code(503);
@@ -54,4 +59,8 @@ if (!$stmt->execute()) {
 }
 $id = $stmt->insert_id;
 $stmt->close();
-echo json_encode(['ok' => true, 'action' => 'queued_for_sim900a', 'notification_id' => $id]);
+echo json_encode([
+    'ok' => true,
+    'action' => $provider === 'textbee' ? 'queued_for_textbee' : 'queued_for_sim900a',
+    'notification_id' => $id
+]);

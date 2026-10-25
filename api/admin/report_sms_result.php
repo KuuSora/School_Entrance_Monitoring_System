@@ -2,6 +2,13 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../system/db.php';
 require_once __DIR__ . '/../../bin/textbee_utils.php';
+require_once __DIR__ . '/ensure_sms_schema.php';
+
+if (!ensure_sms_queue_schema($mysqli)) {
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => 'SMS queue schema is unavailable']);
+    exit;
+}
 
 $id = (int)($_POST['id'] ?? 0);
 $ok = filter_var($_POST['ok'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -37,4 +44,11 @@ $stmt = $mysqli->prepare("UPDATE notifications SET sim_attempts=sim_attempts+1,
 $stmt->bind_param('si', $error, $id);
 $stmt->execute();
 $stmt->close();
-echo json_encode(['ok' => true, 'status' => 'retrying']);
+$stmt = $mysqli->prepare(
+    "UPDATE notifications SET status='failed', fallback_at=NOW()
+     WHERE id=? AND provider='sim900a' AND status='queued' AND sim_attempts >= 2"
+);
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$stmt->close();
+echo json_encode(['ok' => true, 'status' => 'retrying_or_fallback']);
