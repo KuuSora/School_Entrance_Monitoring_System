@@ -50,10 +50,13 @@ if (!isset($_SESSION['admin_uid'])) {
     .display-header {
       display: flex;
       width: 100%;
+      position: relative;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       gap: 16px;
     }
+
+    .display-header > div:first-child { margin-inline: auto; }
 
     .display-heading {
       margin: 0;
@@ -70,6 +73,9 @@ if (!isset($_SESSION['admin_uid'])) {
 
     .display-actions {
       display: flex;
+      position: absolute;
+      top: 0;
+      right: 0;
       gap: 10px;
     }
 
@@ -97,18 +103,31 @@ if (!isset($_SESSION['admin_uid'])) {
       display: block;
       position: relative;
       overflow: hidden;
-      border: 1px solid rgba(114, 198, 232, .55);
+      border: 4px solid rgba(114, 198, 232, .55);
       border-radius: 20px;
-      background: #ffffff url('../image/idcapsu.png') center / 100% 100% no-repeat;
+      background: #073b6c url('../image/idcapsu.png') center / cover no-repeat;
       box-shadow: 0 30px 80px rgba(0, 0, 0, .4), 0 0 50px rgba(90, 169, 230, .25);
+      transition: border-color .3s ease;
       opacity: 0;
-      transform: translateY(12px) scale(.98);
-      transition: opacity .25s ease, transform .25s ease;
+      transform: translateY(30px) scale(.88);
+    }
+
+    .id-card.is-in {
+      border-color: #22c55e;
+    }
+
+    .id-card.is-out {
+      border-color: #ef4444;
     }
 
     .id-card.visible {
-      opacity: 1;
-      transform: translateY(0) scale(1);
+      animation: card-pop-in .55s cubic-bezier(.18, .89, .32, 1.18) both;
+    }
+
+    @keyframes card-pop-in {
+      0% { opacity: 0; transform: translateY(30px) scale(.88); }
+      70% { opacity: 1; transform: translateY(-5px) scale(1.035); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .id-card-layout {
@@ -196,6 +215,25 @@ if (!isset($_SESSION['admin_uid'])) {
       text-shadow: 0 1px 3px rgba(0,0,0,.7);
     }
 
+    .card-presence {
+      position: absolute;
+      left: 5%;
+      bottom: 14%;
+      z-index: 3;
+      min-width: 90px;
+      padding: 8px 14px;
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: 4px;
+      color: #ffffff;
+      background: #16834a;
+      font-size: clamp(11px, 1.5vw, 18px);
+      font-weight: 800;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    }
+
+    .card-presence.is-out { background: #bd354b; }
+
     .placeholder {
       width: min(88vw, 980px);
       min-height: min(58vh, 570px);
@@ -211,7 +249,12 @@ if (!isset($_SESSION['admin_uid'])) {
 
     @media (max-width: 700px) {
       body { overflow: auto; padding: 20px 0; }
-      .display-header { align-items: flex-start; flex-direction: column; }
+      .display-header { flex-direction: column; }
+      .display-actions { position: static; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .id-card.visible { animation-duration: .01ms; }
     }
   </style>
 </head>
@@ -245,6 +288,7 @@ if (!isset($_SESSION['admin_uid'])) {
           <div id="role" class="card-role">Student</div>
         </div>
         <div id="identifier" class="card-identifier card-id"></div>
+        <div id="presence" class="card-presence hidden" aria-live="polite"></div>
       </div>
     </section>
   </main>
@@ -258,6 +302,7 @@ if (!isset($_SESSION['admin_uid'])) {
     const departmentEl = document.getElementById('department');
     const roleEl = document.getElementById('role');
     const identifierEl = document.getElementById('identifier');
+    const presenceEl = document.getElementById('presence');
     let latestScanId = 0;
     let requestToken = 0;
 
@@ -302,18 +347,28 @@ if (!isset($_SESSION['admin_uid'])) {
       departmentEl.textContent = user.department || user.course || '';
       roleEl.textContent = role;
       identifierEl.textContent = identifier;
+      const direction = String(scan.direction || '').toUpperCase();
+      const hasPresence = direction === 'IN' || direction === 'OUT';
+      idCardEl.classList.toggle('is-in', direction === 'IN');
+      idCardEl.classList.toggle('is-out', direction === 'OUT');
+      presenceEl.textContent = hasPresence ? direction : '';
+      presenceEl.classList.toggle('is-in', direction === 'IN');
+      presenceEl.classList.toggle('is-out', direction === 'OUT');
+      presenceEl.classList.toggle('hidden', !hasPresence);
       placeholderEl.classList.add('hidden');
       idCardEl.classList.remove('hidden');
-      requestAnimationFrame(() => idCardEl.classList.add('visible'));
+      idCardEl.classList.remove('visible');
+      void idCardEl.offsetWidth;
+      idCardEl.classList.add('visible');
       statusEl.textContent = 'Latest scan: ' + (scan.created_at || '');
     }
 
     async function pollLatestScan() {
       try {
-        const response = await fetch('../api/scans/get_scans.php?limit=1', { cache: 'no-store' });
+        const response = await fetch('../api/scans/get_latest_scan.php', { cache: 'no-store' });
         if (!response.ok) throw new Error('Scan request failed');
         const result = await response.json();
-        const scan = Array.isArray(result.data) ? result.data[0] : null;
+        const scan = result.data;
         if (!result.ok || !scan) {
           showPlaceholder('Waiting for a student card scan...');
           return;
@@ -338,7 +393,7 @@ if (!isset($_SESSION['admin_uid'])) {
     });
     document.getElementById('closeButton').addEventListener('click', () => window.close());
     pollLatestScan();
-    setInterval(pollLatestScan, 1500);
+    setInterval(pollLatestScan, 1000);
   </script>
 </body>
 </html>

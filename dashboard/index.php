@@ -1371,6 +1371,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     let idCardRequestToken = 0;
     const registerSignalStartMs = Date.now();
     let lastScanId = 0;
+    let latestScanPollInitialized = false;
+    let latestScanPollBusy = false;
     const themeSwitcher = document.getElementById('themeSwitcher');
     let currentRegisteredUser = null;
     let adminTagsByUid = {};
@@ -2832,6 +2834,52 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       }
     }
 
+    async function displayNewScan(scan) {
+      if (editScanWaiting && Number(scan.id) > editScanStartId) {
+        editScanWaiting = false;
+        if (editScanBtnEl) {
+          editScanBtnEl.textContent = 'Scan Card to Edit';
+        }
+        registerStatusEl.textContent = `Loading card ${scan.uid}...`;
+        await loadUserDetails(scan.uid, true);
+      }
+
+      if (scan.name === 'New User' || !scan.name) {
+        hideIdCard();
+        setTimeout(() => showUnregistered(scan.uid, scan.created_at), 100);
+      } else {
+        await showIdCardForUser(scan.uid);
+      }
+    }
+
+    async function pollLatestScan() {
+      if (latestScanPollBusy) return;
+      latestScanPollBusy = true;
+      try {
+        const res = await fetch('../api/scans/get_latest_scan.php', { cache: 'no-store' });
+        if (!res.ok) return;
+        const result = await res.json();
+        const scan = result.ok ? result.data : null;
+        if (!scan) return;
+
+        const scanId = Number(scan.id);
+        if (!latestScanPollInitialized) {
+          latestScanPollInitialized = true;
+          lastScanId = Math.max(lastScanId, scanId);
+          return;
+        }
+        if (scanId <= lastScanId) return;
+
+        lastScanId = scanId;
+        await displayNewScan(scan);
+        loadScans();
+      } catch (err) {
+        console.error('Failed to poll latest scan:', err);
+      } finally {
+        latestScanPollBusy = false;
+      }
+    }
+
     async function loadScans() {
       const adminUid = getAdminFilterValue();
       const suspiciousOnly = suspiciousOnlyEl && suspiciousOnlyEl.checked ? 1 : 0;
@@ -2906,26 +2954,9 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
         rowsEl.innerHTML = newHtml;
         statusEl.textContent = `Last update: ${new Date().toLocaleTimeString()}`;
 
-        // Registered cards are logged directly as scans, so use the next scan
-        // after the edit button was armed as the card to load.
-        if (editScanWaiting && newestScan && parseInt(newestScan.id) > editScanStartId) {
-          editScanWaiting = false;
-          if (editScanBtnEl) {
-            editScanBtnEl.textContent = 'Scan Card to Edit';
-          }
-          registerStatusEl.textContent = `Loading card ${newestScan.uid}...`;
-          await loadUserDetails(newestScan.uid, true);
-        }
-
         // highlight the newest scan row with a glow animation
         if (newestScan) {
-          // show unregistered modal if needed
-          if (newestScan.name === 'New User' || !newestScan.name) {
-            hideIdCard();
-            setTimeout(() => showUnregistered(newestScan.uid, newestScan.created_at), 100);
-          } else {
-            showIdCardForUser(newestScan.uid);
-          }
+          await displayNewScan(newestScan);
 
           // animate the corresponding table row after DOM update
           setTimeout(() => {
@@ -3656,6 +3687,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
 
     let scanPollInterval = null;
     let suspiciousPollInterval = null;
+    let latestScanPollInterval = null;
     let registerPollInterval = null;
     let adminPollInterval = null;
 
@@ -3973,10 +4005,12 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     function clearPollingIntervals() {
       if (scanPollInterval) clearInterval(scanPollInterval);
       if (suspiciousPollInterval) clearInterval(suspiciousPollInterval);
+      if (latestScanPollInterval) clearInterval(latestScanPollInterval);
       if (registerPollInterval) clearInterval(registerPollInterval);
       if (adminPollInterval) clearInterval(adminPollInterval);
       scanPollInterval = null;
       suspiciousPollInterval = null;
+      latestScanPollInterval = null;
       registerPollInterval = null;
       adminPollInterval = null;
     }
@@ -3987,6 +4021,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       const suspiciousMs = Math.max(1000, (parseInt(settingsData.refresh_suspicious_alerts || 10, 10) * 1000));
       scanPollInterval = setInterval(loadScans, scanMs);
       suspiciousPollInterval = setInterval(loadSuspicious, suspiciousMs);
+      pollLatestScan();
+      latestScanPollInterval = setInterval(pollLatestScan, 1000);
       registerPollInterval = setInterval(pollRegisterSignal, 1500);
       adminPollInterval = setInterval(pollAdminSignal, 1500);
     }
