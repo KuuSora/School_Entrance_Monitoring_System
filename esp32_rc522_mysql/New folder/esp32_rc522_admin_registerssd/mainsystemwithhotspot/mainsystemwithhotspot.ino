@@ -594,32 +594,32 @@ void lockAll() {
 }
 
 void lockIn() {
-  digitalWrite(RELAY_M1, HIGH);
+  digitalWrite(RELAY_M2, HIGH);
   inUnlocked = false;
   inUnlockTime = 0;
   showStatus("LOCKED IN", "Timeout");
 }
 
 void lockOut() {
-  digitalWrite(RELAY_M2, HIGH);
+  digitalWrite(RELAY_M1, HIGH);
   outUnlocked = false;
   outUnlockTime = 0;
   showStatus("LOCKED OUT", "Timeout");
 }
 
 void unlockOut() {
-  digitalWrite(RELAY_M2, LOW);
+  digitalWrite(RELAY_M1, LOW);
   outUnlocked = true;
   outUnlockTime = millis();
-  showStatus("UNLOCK OUT", "Relay M2 active");
+  showStatus("UNLOCK OUT", "Relay M1 active");
   triggerBuzzer();
 }
 
 void unlockIn() {
-  digitalWrite(RELAY_M1, LOW);
+  digitalWrite(RELAY_M2, LOW);
   inUnlocked = true;
   inUnlockTime = millis();
-  showStatus("UNLOCK IN", "Relay M1 active");
+  showStatus("UNLOCK IN", "Relay M2 active");
   triggerBuzzer();
 }
 
@@ -797,8 +797,8 @@ void loop() {
     buzzerEndTime = 0;
   }
 
-  handleScan(mfrc522In, "IN", inLastScanTime);
-  handleScan(mfrc522Out, "OUT", outLastScanTime);
+  handleScan(mfrc522In, "OUT", inLastScanTime);
+  handleScan(mfrc522Out, "IN", outLastScanTime);
 
   delay(50);
 }

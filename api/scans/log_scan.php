@@ -88,6 +88,18 @@ if (!preg_match('/^[0-9A-Fa-f:]+$/', $uid)) {
     exit;
 }
 
+// Debug info (non-blocking): check if scanner (main_system) is connected.
+$stateFile = __DIR__ . '/../state/device_heartbeats.json';
+$state = [];
+if (is_file($stateFile)) {
+    $decoded = json_decode((string)@file_get_contents($stateFile), true);
+    if (is_array($decoded)) {
+        $state = $decoded;
+    }
+}
+$mainLastSeen = (int)($state['main_system']['last_seen'] ?? 0);
+$mainOnline = $mainLastSeen > 0 && (time() - $mainLastSeen) <= 90;
+
 // Normalized UID (uppercase, no separators) for reliable DB matching
 $uid_norm = strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
 
@@ -221,5 +233,6 @@ echo json_encode([
     'sms' => $smsResult,
     'sms_payload' => $smsPayload,
     'sim900a_phone' => $smsPayload['phone'] ?? null,
-    'sim900a_message' => $smsPayload['message'] ?? null
+    'sim900a_message' => $smsPayload['message'] ?? null,
+    'debug' => ['main_system_online' => $mainOnline, 'last_seen' => $mainLastSeen > 0 ? date('c', $mainLastSeen) : null],
 ]);

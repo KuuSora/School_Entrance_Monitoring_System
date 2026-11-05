@@ -6,6 +6,13 @@ function normalize_uid_value(string $uid): string {
     return strtoupper(preg_replace('/[^0-9A-Fa-f]/', '', $uid));
 }
 
+// Debug info (non-blocking)
+$stateFile = __DIR__ . '/../state/device_heartbeats.json';
+$state = [];
+if (is_file($stateFile)) { $d = json_decode((string)@file_get_contents($stateFile), true); if (is_array($d)) $state = $d; }
+$mainLastSeen = (int)($state['main_system']['last_seen'] ?? 0);
+$mainOnline = $mainLastSeen > 0 && (time() - $mainLastSeen) <= 90;
+
 $uid = '';
 $admin_uid = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -76,4 +83,4 @@ if ($admin_uid !== '') {
 
 @file_put_contents($signal_file, json_encode($signal_data));
 
-echo json_encode(['ok' => true, 'name' => $name, 'edit_mode' => $admin_uid !== '']);
+echo json_encode(['ok' => true, 'name' => $name, 'edit_mode' => $admin_uid !== '', 'debug' => ['main_system_online' => $mainOnline, 'last_seen' => $mainLastSeen > 0 ? date('c', $mainLastSeen) : null]]);

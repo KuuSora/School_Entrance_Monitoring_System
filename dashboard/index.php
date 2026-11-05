@@ -12,7 +12,7 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>School Entrance Monitoring System</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <style>
     :root {
       --bg-color: #f8fbff;
@@ -189,9 +189,11 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       transform: translateX(-50%) translateY(0) rotateX(0deg);
     }
     .id-card {
-      width: 280px;
-      background: #fff;
-      border-radius: 16px;
+      width: min(100%, 720px);
+      aspect-ratio: 2100 / 1236;
+      min-height: 0;
+      background: transparent;
+      border-radius: 20px;
       box-shadow: 0 10px 30px rgba(56, 189, 248, 0.35);
       overflow: hidden;
       border: 1px solid #e0e0e0;
@@ -218,7 +220,8 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
     }
     .id-card-photo img { width: 100%; height: 100%; object-fit: cover; }
     .id-card-name {
-      font-size: 25px;
+      font-size: clamp(12px, 2.4vw, 39px);
+      line-height: 1.05;
       font-weight: 700;
       color: #000000;
       text-transform: uppercase;
@@ -248,6 +251,12 @@ $isMasterAdmin = ($_SESSION['admin_role'] ?? 'admin') === 'master';
       <div class="theme-switcher" id="themeSwitcher" title="Toggle Theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
       </div>
+      <a class="student-display-link" href="student_display.php" target="_blank" rel="noopener" title="Open Student Display" aria-label="Open Student Display">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
+          <circle cx="12" cy="12" r="2.8"></circle>
+        </svg>
+      </a>
       <div class="device-status-group" id="deviceStatusGroup" title="Device connection status" aria-label="Device connection status">
         <span class="device-status-item"><span class="device-status-dot" data-device-status="main_system"></span><span>Main</span></span>
         <span class="device-status-item"><span class="device-status-dot" data-device-status="portable"></span><span>Portable</span></span>
